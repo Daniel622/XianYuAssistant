@@ -10,5 +10,9 @@ public interface DataBackupHandler {
 
     Map<String, Object> exportData();
 
-    void importData(Map<String, Object> data);
+    default void importData(Map<String, Object> data) {
+        importData(data, new java.util.LinkedHashMap<>());
+    }
+
+    void importData(Map<String, Object> data, Map<String, Object> context);
 }

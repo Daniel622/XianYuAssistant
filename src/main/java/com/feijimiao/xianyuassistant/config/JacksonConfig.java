@@ -1,5 +1,6 @@
 package com.feijimiao.xianyuassistant.config;
 
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
@@ -18,6 +19,8 @@ public class JacksonConfig {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(DATETIME_FORMAT);
         return builder -> builder
                 .serializers(new LocalDateTimeSerializer(formatter))
-                .deserializers(new LocalDateTimeDeserializer(formatter));
+                .deserializers(new LocalDateTimeDeserializer(formatter))
+                .serializerByType(Long.class, ToStringSerializer.instance)
+                .serializerByType(Long.TYPE, ToStringSerializer.instance);
     }
 }

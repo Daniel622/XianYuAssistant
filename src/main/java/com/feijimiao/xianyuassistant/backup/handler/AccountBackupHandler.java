@@ -44,45 +44,72 @@ public class AccountBackupHandler implements DataBackupHandler {
     }
 
     @Override
-    public void importData(Map<String, Object> data) {
+    public void importData(Map<String, Object> data, Map<String, Object> context) {
         if (data == null) return;
+
+        Map<Long, Long> oldToNewAccountId = new HashMap<>();
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> accountMaps = (List<Map<String, Object>>) data.get("accounts");
         if (accountMaps != null) {
             for (Map<String, Object> map : accountMaps) {
-                XianyuAccount account = mapToAccount(map);
-                if (account == null) continue;
+                try {
+                    Long oldId = map.get("id") != null ? ((Number) map.get("id")).longValue() : null;
+                    XianyuAccount account = mapToAccount(map);
+                    if (account == null) continue;
 
-                LambdaQueryWrapper<XianyuAccount> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(XianyuAccount::getUnb, account.getUnb());
-                XianyuAccount existing = accountMapper.selectOne(wrapper);
-                if (existing == null) {
-                    account.setId(null);
-                    accountMapper.insert(account);
-                } else {
-                    account.setId(existing.getId());
-                    accountMapper.updateById(account);
+                    LambdaQueryWrapper<XianyuAccount> wrapper = new LambdaQueryWrapper<>();
+                    wrapper.eq(XianyuAccount::getUnb, account.getUnb());
+                    XianyuAccount existing = accountMapper.selectOne(wrapper);
+                    if (existing == null) {
+                        if (oldId != null) {
+                            account.setId(oldId);
+                        } else {
+                            account.setId(null);
+                        }
+                        accountMapper.insert(account);
+                        if (oldId != null && !oldId.equals(account.getId())) {
+                            oldToNewAccountId.put(oldId, account.getId());
+                        }
+                    } else {
+                        if (oldId != null) {
+                            oldToNewAccountId.put(oldId, existing.getId());
+                        }
+                        account.setId(existing.getId());
+                        accountMapper.updateById(account);
+                    }
+                } catch (Exception e) {
+                    log.warn("[AccountBackup] 导入单条账号数据失败: {}", e.getMessage());
                 }
             }
         }
+
+        context.put("accountIdMapping", oldToNewAccountId);
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> cookieMaps = (List<Map<String, Object>>) data.get("cookies");
         if (cookieMaps != null) {
             for (Map<String, Object> map : cookieMaps) {
-                XianyuCookie cookie = mapToCookie(map);
-                if (cookie == null) continue;
+                try {
+                    XianyuCookie cookie = mapToCookie(map);
+                    if (cookie == null) continue;
 
-                LambdaQueryWrapper<XianyuCookie> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(XianyuCookie::getXianyuAccountId, cookie.getXianyuAccountId());
-                XianyuCookie existing = cookieMapper.selectOne(wrapper);
-                if (existing == null) {
-                    cookie.setId(null);
-                    cookieMapper.insert(cookie);
-                } else {
-                    cookie.setId(existing.getId());
-                    cookieMapper.updateById(cookie);
+                    if (cookie.getXianyuAccountId() != null && oldToNewAccountId.containsKey(cookie.getXianyuAccountId())) {
+                        cookie.setXianyuAccountId(oldToNewAccountId.get(cookie.getXianyuAccountId()));
+                    }
+
+                    LambdaQueryWrapper<XianyuCookie> wrapper = new LambdaQueryWrapper<>();
+                    wrapper.eq(XianyuCookie::getXianyuAccountId, cookie.getXianyuAccountId());
+                    XianyuCookie existing = cookieMapper.selectOne(wrapper);
+                    if (existing == null) {
+                        cookie.setId(null);
+                        cookieMapper.insert(cookie);
+                    } else {
+                        cookie.setId(existing.getId());
+                        cookieMapper.updateById(cookie);
+                    }
+                } catch (Exception e) {
+                    log.warn("[AccountBackup] 导入单条Cookie数据失败: {}", e.getMessage());
                 }
             }
         }

@@ -23,6 +23,7 @@ export interface GoodsItemWithConfig {
   xianyuAutoDeliveryOn: number;
   xianyuAutoReplyOn: number;
   xianyuAutoReplyContextOn: number;
+  xianyuKeywordReplyOn: number;
   autoDeliveryType?: number;
   autoDeliveryContent?: string;
 }

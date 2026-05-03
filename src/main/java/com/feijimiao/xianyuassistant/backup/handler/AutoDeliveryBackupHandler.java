@@ -36,27 +36,40 @@ public class AutoDeliveryBackupHandler implements DataBackupHandler {
     }
 
     @Override
-    public void importData(Map<String, Object> data) {
+    public void importData(Map<String, Object> data, Map<String, Object> context) {
         if (data == null) return;
+
+        @SuppressWarnings("unchecked")
+        Map<Long, Long> accountIdMapping = context.get("accountIdMapping") != null
+                ? (Map<Long, Long>) context.get("accountIdMapping")
+                : Collections.emptyMap();
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> configMaps = (List<Map<String, Object>>) data.get("autoDeliveryConfigs");
         if (configMaps == null) return;
 
         for (Map<String, Object> map : configMaps) {
-            XianyuGoodsAutoDeliveryConfig config = mapToConfig(map);
-            if (config == null) continue;
+            try {
+                XianyuGoodsAutoDeliveryConfig config = mapToConfig(map);
+                if (config == null) continue;
 
-            LambdaQueryWrapper<XianyuGoodsAutoDeliveryConfig> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(XianyuGoodsAutoDeliveryConfig::getXianyuAccountId, config.getXianyuAccountId())
-                   .eq(XianyuGoodsAutoDeliveryConfig::getXyGoodsId, config.getXyGoodsId());
-            XianyuGoodsAutoDeliveryConfig existing = autoDeliveryConfigMapper.selectOne(wrapper);
-            if (existing == null) {
-                config.setId(null);
-                autoDeliveryConfigMapper.insert(config);
-            } else {
-                config.setId(existing.getId());
-                autoDeliveryConfigMapper.updateById(config);
+                if (config.getXianyuAccountId() != null && accountIdMapping.containsKey(config.getXianyuAccountId())) {
+                    config.setXianyuAccountId(accountIdMapping.get(config.getXianyuAccountId()));
+                }
+
+                LambdaQueryWrapper<XianyuGoodsAutoDeliveryConfig> wrapper = new LambdaQueryWrapper<>();
+                wrapper.eq(XianyuGoodsAutoDeliveryConfig::getXianyuAccountId, config.getXianyuAccountId())
+                       .eq(XianyuGoodsAutoDeliveryConfig::getXyGoodsId, config.getXyGoodsId());
+                XianyuGoodsAutoDeliveryConfig existing = autoDeliveryConfigMapper.selectOne(wrapper);
+                if (existing == null) {
+                    config.setId(null);
+                    autoDeliveryConfigMapper.insert(config);
+                } else {
+                    config.setId(existing.getId());
+                    autoDeliveryConfigMapper.updateById(config);
+                }
+            } catch (Exception e) {
+                log.warn("[AutoDeliveryBackup] 导入单条自动发货配置失败: {}", e.getMessage());
             }
         }
     }

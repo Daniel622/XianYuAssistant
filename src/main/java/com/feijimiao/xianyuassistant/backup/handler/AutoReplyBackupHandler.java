@@ -41,36 +41,49 @@ public class AutoReplyBackupHandler implements DataBackupHandler {
     }
 
     @Override
-    public void importData(Map<String, Object> data) {
+    public void importData(Map<String, Object> data, Map<String, Object> context) {
         if (data == null) return;
+
+        @SuppressWarnings("unchecked")
+        Map<Long, Long> accountIdMapping = context.get("accountIdMapping") != null
+                ? (Map<Long, Long>) context.get("accountIdMapping")
+                : Collections.emptyMap();
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> configMaps = (List<Map<String, Object>>) data.get("autoReplyConfigs");
         if (configMaps == null) return;
 
         for (Map<String, Object> map : configMaps) {
-            String xyGoodsId = (String) map.get("xy_goods_id");
-            Object accountIdObj = map.get("xianyu_account_id");
-            Long xianyuAccountId = accountIdObj != null ? ((Number) accountIdObj).longValue() : null;
+            try {
+                String xyGoodsId = (String) map.get("xy_goods_id");
+                Object accountIdObj = map.get("xianyu_account_id");
+                Long xianyuAccountId = accountIdObj != null ? ((Number) accountIdObj).longValue() : null;
 
-            if (xyGoodsId == null || xianyuAccountId == null) continue;
+                if (xyGoodsId == null || xianyuAccountId == null) continue;
 
-            Integer autoReplyOn = map.get("xianyu_auto_reply_on") != null ? ((Number) map.get("xianyu_auto_reply_on")).intValue() : null;
-            Integer autoReplyContextOn = map.get("xianyu_auto_reply_context_on") != null ? ((Number) map.get("xianyu_auto_reply_context_on")).intValue() : null;
-            String fixedMaterial = (String) map.get("fixed_material");
+                if (accountIdMapping.containsKey(xianyuAccountId)) {
+                    xianyuAccountId = accountIdMapping.get(xianyuAccountId);
+                }
 
-            List<Map<String, Object>> existing = jdbcTemplate.queryForList(
-                    "SELECT * FROM xianyu_goods_config WHERE xianyu_account_id = ? AND xy_goods_id = ?",
-                    xianyuAccountId, xyGoodsId);
+                Integer autoReplyOn = map.get("xianyu_auto_reply_on") != null ? ((Number) map.get("xianyu_auto_reply_on")).intValue() : null;
+                Integer autoReplyContextOn = map.get("xianyu_auto_reply_context_on") != null ? ((Number) map.get("xianyu_auto_reply_context_on")).intValue() : null;
+                String fixedMaterial = (String) map.get("fixed_material");
 
-            if (existing.isEmpty()) {
-                jdbcTemplate.update(
-                        "INSERT INTO xianyu_goods_config (xianyu_account_id, xy_goods_id, xianyu_auto_reply_on, xianyu_auto_reply_context_on, fixed_material) VALUES (?, ?, ?, ?, ?)",
-                        xianyuAccountId, xyGoodsId, autoReplyOn, autoReplyContextOn, fixedMaterial);
-            } else {
-                jdbcTemplate.update(
-                        "UPDATE xianyu_goods_config SET xianyu_auto_reply_on = ?, xianyu_auto_reply_context_on = ?, fixed_material = ? WHERE xianyu_account_id = ? AND xy_goods_id = ?",
-                        autoReplyOn, autoReplyContextOn, fixedMaterial, xianyuAccountId, xyGoodsId);
+                List<Map<String, Object>> existing = jdbcTemplate.queryForList(
+                        "SELECT * FROM xianyu_goods_config WHERE xianyu_account_id = ? AND xy_goods_id = ?",
+                        xianyuAccountId, xyGoodsId);
+
+                if (existing.isEmpty()) {
+                    jdbcTemplate.update(
+                            "INSERT INTO xianyu_goods_config (xianyu_account_id, xy_goods_id, xianyu_auto_reply_on, xianyu_auto_reply_context_on, fixed_material) VALUES (?, ?, ?, ?, ?)",
+                            xianyuAccountId, xyGoodsId, autoReplyOn, autoReplyContextOn, fixedMaterial);
+                } else {
+                    jdbcTemplate.update(
+                            "UPDATE xianyu_goods_config SET xianyu_auto_reply_on = ?, xianyu_auto_reply_context_on = ?, fixed_material = ? WHERE xianyu_account_id = ? AND xy_goods_id = ?",
+                            autoReplyOn, autoReplyContextOn, fixedMaterial, xianyuAccountId, xyGoodsId);
+                }
+            } catch (Exception e) {
+                log.warn("[AutoReplyBackup] 导入单条自动回复配置失败: {}", e.getMessage());
             }
         }
     }

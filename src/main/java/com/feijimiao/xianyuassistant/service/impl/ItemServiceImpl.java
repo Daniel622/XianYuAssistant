@@ -860,12 +860,20 @@ public class ItemServiceImpl implements ItemService {
                 }
                 goodsConfig.setCreateTime(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date()));
                 goodsConfig.setUpdateTime(goodsConfig.getCreateTime());
+                if (reqDTO.getXianyuKeywordReplyOn() != null) {
+                    goodsConfig.setXianyuKeywordReplyOn(reqDTO.getXianyuKeywordReplyOn());
+                } else {
+                    goodsConfig.setXianyuKeywordReplyOn(0);
+                }
             } else {
                 // 3. 更新配置
                 goodsConfig.setXianyuAutoReplyOn(reqDTO.getXianyuAutoReplyOn());
                 // 更新携带上下文开关
                 if (reqDTO.getXianyuAutoReplyContextOn() != null) {
                     goodsConfig.setXianyuAutoReplyContextOn(reqDTO.getXianyuAutoReplyContextOn());
+                }
+                if (reqDTO.getXianyuKeywordReplyOn() != null) {
+                    goodsConfig.setXianyuKeywordReplyOn(reqDTO.getXianyuKeywordReplyOn());
                 }
                 goodsConfig.setUpdateTime(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date()));
             }

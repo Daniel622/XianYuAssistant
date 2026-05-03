@@ -17,6 +17,7 @@ import IconClipboard from '@/components/icons/IconClipboard.vue'
 import IconSearch from '@/components/icons/IconSearch.vue'
 
 import GoodsDetailDialog from '../goods/components/GoodsDetailDialog.vue'
+import ImageUploader from '@/components/ImageUploader.vue'
 
 const {
   // State
@@ -87,7 +88,17 @@ const {
   parseTriggerContext,
   handleSaveFixedMaterial,
   handleSyncDetailToFixedMaterial,
-  toggleFixedMaterialExpanded
+  toggleFixedMaterialExpanded,
+  keywordRules, newKeyword, newContentText, newContentImage,
+  toggleKeywordReply, handleAddKeyword, handleDeleteRule, handleAddContent, handleDeleteContent,
+  replyModeTab, selectedKeywordRuleId, selectedKeywordRule,
+  handleContentTextChange, handleContentImageUpload, handleContentImageDelete,
+  showAddKeywordInput,
+  addKeywordDialogVisible, addReplyDialogVisible,
+  addReplyText, addReplyImageUrls,
+  handleAddKeywordFromDialog, handleAddReplyFromDialog,
+  handleUpdateMatchMode,
+  fallbackRule, fallbackText, fallbackImageUrls, fallbackExpanded, handleSaveFallbackText
 } = useAutoReply()
 
 // 导航栏注入
@@ -204,7 +215,14 @@ onMounted(() => {
                   class="ar__goods-auto-badge ar__goods-auto-badge--on"
                 >
                   <IconSparkle />
-                  自动
+                  AI
+                </span>
+                <span
+                  v-if="goods.xianyuKeywordReplyOn === 1"
+                  class="ar__goods-auto-badge ar__goods-auto-badge--kw"
+                >
+                  <IconChat />
+                  关键词
                 </span>
               </div>
             </div>
@@ -280,13 +298,35 @@ onMounted(() => {
 
         <!-- Config content -->
         <div v-if="selectedGoods" class="ar__config-scroll">
-          <!-- Auto Reply Toggle -->
+          <!-- Reply Mode Tabs -->
           <div class="ar__config-section">
-            <div class="ar__config-section-title">回复设置</div>
+            <div class="ar__reply-mode-tabs">
+              <button
+                class="ar__reply-mode-tab"
+                :class="{ 'ar__reply-mode-tab--active': replyModeTab === 'ai' }"
+                @click="replyModeTab = 'ai'"
+              >
+                <IconSparkle />
+                <span>AI回复</span>
+                <span class="ar__reply-mode-dot" :class="{ 'ar__reply-mode-dot--on': selectedGoods.xianyuAutoReplyOn === 1 }"></span>
+              </button>
+              <button
+                class="ar__reply-mode-tab"
+                :class="{ 'ar__reply-mode-tab--active': replyModeTab === 'keyword' }"
+                @click="replyModeTab = 'keyword'"
+              >
+                <IconChat />
+                <span>关键词回复</span>
+                <span class="ar__reply-mode-dot" :class="{ 'ar__reply-mode-dot--on': selectedGoods.xianyuKeywordReplyOn === 1 }"></span>
+              </button>
+            </div>
+          </div>
 
+          <!-- AI Reply Config -->
+          <div v-if="replyModeTab === 'ai'" class="ar__config-section">
             <div class="ar__toggle-row">
               <div class="ar__toggle-info">
-                <div class="ar__toggle-label">自动回复</div>
+                <div class="ar__toggle-label">AI回复</div>
                 <div class="ar__toggle-hint">买家咨询时基于AI知识库自动回复</div>
               </div>
               <label class="ar__switch">
@@ -316,7 +356,6 @@ onMounted(() => {
               </label>
             </div>
 
-            <!-- Delay Config (show when auto reply is enabled) -->
             <div v-if="selectedGoods.xianyuAutoReplyOn === 1" class="ar__delay-config">
               <div class="ar__delay-row">
                 <span class="ar__delay-label">回复延时</span>
@@ -341,8 +380,194 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Tab Switch: Data / Chat -->
-          <div class="ar__tab-group">
+          <!-- Keyword Reply Config -->
+          <div v-if="replyModeTab === 'keyword'" class="ar__config-section">
+            <div class="ar__toggle-row">
+              <div class="ar__toggle-info">
+                <div class="ar__toggle-label">关键词回复</div>
+                <div class="ar__toggle-hint">
+                  匹配买家消息中的关键词，回复预设内容
+                  <template v-if="selectedGoods.xianyuAutoReplyOn === 1 && selectedGoods.xianyuKeywordReplyOn === 1">
+                    （AI润化）
+                  </template>
+                </div>
+              </div>
+              <label class="ar__switch">
+                <input
+                  type="checkbox"
+                  :checked="selectedGoods.xianyuKeywordReplyOn === 1"
+                  @change="toggleKeywordReply(($event.target as HTMLInputElement).checked)"
+                />
+                <span class="ar__switch-track"></span>
+                <span class="ar__switch-thumb"></span>
+              </label>
+            </div>
+
+            <div class="ar__kw-fallback">
+              <div class="ar__kw-fallback-header" @click="fallbackExpanded = !fallbackExpanded">
+                <span class="ar__kw-fallback-label">未匹配到关键词时回复</span>
+                <span v-if="!fallbackExpanded && (fallbackText || fallbackImageUrls.length)" class="ar__kw-fallback-summary">{{ fallbackText || `已配置${fallbackImageUrls.length}张图片` }}</span>
+                <span class="ar__kw-fallback-arrow" :class="{ 'ar__kw-fallback-arrow--collapsed': !fallbackExpanded }">›</span>
+              </div>
+              <div v-if="fallbackExpanded" class="ar__kw-fallback-body">
+                <div class="ar__kw-fallback-left">
+                  <div v-if="fallbackImageUrls.length" class="ar__kw-fallback-img-list">
+                    <div v-for="(url, idx) in fallbackImageUrls" :key="idx" class="ar__kw-fallback-preview">
+                      <img :src="url" />
+                      <button class="ar__kw-fallback-img-del" @click="fallbackImageUrls.splice(idx, 1)">×</button>
+                    </div>
+                  </div>
+                  <div :class="fallbackImageUrls.length ? 'ar__kw-upload-sm' : 'ar__kw-upload-lg'">
+                    <ImageUploader v-if="selectedAccountId" :account-id="selectedAccountId" @update:model-value="(v: string) => v && fallbackImageUrls.push(v)" />
+                  </div>
+                </div>
+                <div class="ar__kw-fallback-right">
+                  <textarea v-model="fallbackText" class="ar__kw-fallback-textarea" placeholder="输入回复文本（可选）" rows="3"></textarea>
+                  <button class="ar__kw-fallback-save" @click="handleSaveFallbackText">保存</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="ar__kw">
+              <div class="ar__kw-toolbar">
+                <button class="ar__kw-toolbar-btn" @click="addKeywordDialogVisible = true">+ 添加关键词</button>
+              </div>
+              <!-- Mobile: keyword list / reply list view switch -->
+              <div v-if="isMobile" class="ar__kw-mobile">
+                <div v-if="!selectedKeywordRuleId" class="ar__kw-mobile-list">
+                  <div v-if="keywordRules.length > 0" class="ar__kw-items">
+                    <div v-for="rule in keywordRules" :key="rule.id" class="ar__kw-item" @click="selectedKeywordRuleId = rule.id">
+                      <span class="ar__kw-item-text">{{ rule.keyword }}</span>
+                      <span class="ar__kw-item-mode">{{ rule.matchMode === 2 ? '精准' : '模糊' }}</span>
+                      <span class="ar__kw-item-count">{{ rule.contents?.length || 0 }}条</span>
+                      <span class="ar__kw-item-arrow">›</span>
+                    </div>
+                  </div>
+                  <div v-else class="ar__kw-empty">添加关键词开始配置</div>
+                </div>
+                <div v-else class="ar__kw-mobile-detail">
+                  <button class="ar__kw-back" @click="selectedKeywordRuleId = null">‹ 返回关键词</button>
+                  <template v-if="selectedKeywordRule">
+                    <div class="ar__kw-detail-header">
+                      <span class="ar__kw-detail-title">{{ selectedKeywordRule.keyword }}</span>
+                      <button class="ar__kw-add-reply-btn" @click="addReplyDialogVisible = true">+ 添加回复</button>
+                    </div>
+                    <div class="ar__kw-detail-meta">
+                      <div class="ar__kw-match-mode">
+                        <button class="ar__kw-mode-btn" :class="{ 'ar__kw-mode-btn--active': selectedKeywordRule.matchMode !== 2 }" @click="handleUpdateMatchMode(selectedKeywordRule.id, 1)">模糊</button>
+                        <button class="ar__kw-mode-btn" :class="{ 'ar__kw-mode-btn--active': selectedKeywordRule.matchMode === 2 }" @click="handleUpdateMatchMode(selectedKeywordRule.id, 2)">精准</button>
+                      </div>
+                    </div>
+                    <div v-if="selectedKeywordRule.contents?.length" class="ar__kw-replies">
+                      <div v-for="(c, i) in selectedKeywordRule.contents" :key="c.id" class="ar__kw-reply">
+                        <div class="ar__kw-reply-top"><span class="ar__kw-reply-num">#{{ i + 1 }}</span><button class="ar__kw-reply-del" @click="handleDeleteContent(c.id, selectedKeywordRule!.id)">删除</button></div>
+                        <div class="ar__kw-reply-body">
+                          <div v-if="c.replyImageUrl" class="ar__kw-reply-img"><img :src="c.replyImageUrl" /><button class="ar__kw-reply-img-del" @click="handleContentImageDelete(c)">×</button></div>
+                          <div class="ar__kw-reply-text-row" v-if="c.replyText"><span class="ar__kw-reply-text-show">{{ c.replyText }}</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="ar__kw-empty">暂无回复内容</div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Desktop/Tablet: left-right layout -->
+              <div v-else class="ar__kw-desktop">
+                <div class="ar__kw-sidebar">
+                  <div class="ar__kw-sidebar-head">
+                    <span class="ar__kw-sidebar-label">关键词</span>
+                  </div>
+                  <div v-if="keywordRules.length > 0" class="ar__kw-items">
+                    <div v-for="rule in keywordRules" :key="rule.id" class="ar__kw-item" :class="{ 'ar__kw-item--active': selectedKeywordRuleId === rule.id }" @click="selectedKeywordRuleId = rule.id">
+                      <span class="ar__kw-item-text">{{ rule.keyword }}</span>
+                      <span class="ar__kw-item-mode">{{ rule.matchMode === 2 ? '精准' : '模糊' }}</span>
+                      <span class="ar__kw-item-count">{{ rule.contents?.length || 0 }}</span>
+                      <span class="ar__kw-item-arrow">›</span>
+                    </div>
+                  </div>
+                  <div v-else class="ar__kw-empty">点击上方添加关键词</div>
+                </div>
+                <div class="ar__kw-main">
+                  <template v-if="selectedKeywordRule">
+                    <div class="ar__kw-detail-header">
+                      <span class="ar__kw-detail-title">{{ selectedKeywordRule.keyword }}</span>
+                      <button class="ar__kw-add-reply-btn" @click="addReplyDialogVisible = true">+ 添加回复</button>
+                    </div>
+                    <div class="ar__kw-detail-meta">
+                      <div class="ar__kw-match-mode">
+                        <button class="ar__kw-mode-btn" :class="{ 'ar__kw-mode-btn--active': selectedKeywordRule.matchMode !== 2 }" @click="handleUpdateMatchMode(selectedKeywordRule.id, 1)">模糊匹配</button>
+                        <button class="ar__kw-mode-btn" :class="{ 'ar__kw-mode-btn--active': selectedKeywordRule.matchMode === 2 }" @click="handleUpdateMatchMode(selectedKeywordRule.id, 2)">精准匹配</button>
+                      </div>
+                    </div>
+                    <div class="ar__kw-detail-sub">匹配此关键词时随机回复以下内容</div>
+                    <div v-if="selectedKeywordRule.contents?.length" class="ar__kw-replies">
+                      <div v-for="(c, i) in selectedKeywordRule.contents" :key="c.id" class="ar__kw-reply">
+                        <div class="ar__kw-reply-top"><span class="ar__kw-reply-num">#{{ i + 1 }}</span><button class="ar__kw-reply-del" @click="handleDeleteContent(c.id, selectedKeywordRule!.id)">删除</button></div>
+                        <div class="ar__kw-reply-body">
+                          <div v-if="c.replyImageUrl" class="ar__kw-reply-img"><img :src="c.replyImageUrl" /><button class="ar__kw-reply-img-del" @click="handleContentImageDelete(c)">×</button></div>
+                          <div class="ar__kw-reply-text-row" v-if="c.replyText"><span class="ar__kw-reply-text-show">{{ c.replyText }}</span></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else class="ar__kw-empty">暂无回复，点击上方添加</div>
+                  </template>
+                  <div v-else class="ar__kw-placeholder">
+                    <div class="ar__kw-placeholder-icon">💬</div>
+                    <div>选择左侧关键词查看回复</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add Keyword Dialog (iOS style) -->
+          <Teleport to="body">
+            <div v-if="addKeywordDialogVisible" class="ar__dialog-overlay" @click.self="addKeywordDialogVisible = false">
+              <div class="ar__dialog">
+                <div class="ar__dialog-header">添加关键词</div>
+                <div class="ar__dialog-body">
+                  <input type="text" v-model="newKeyword" class="ar__dialog-input" placeholder="输入关键词" @keydown.enter="handleAddKeywordFromDialog" autofocus />
+                </div>
+                <div class="ar__dialog-actions">
+                  <button class="ar__dialog-btn ar__dialog-btn--cancel" @click="addKeywordDialogVisible = false; newKeyword = ''">取消</button>
+                  <button class="ar__dialog-btn ar__dialog-btn--confirm" @click="handleAddKeywordFromDialog" :disabled="!newKeyword.trim()">确定</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
+
+          <!-- Add Reply Dialog (iOS style) -->
+          <Teleport to="body">
+            <div v-if="addReplyDialogVisible" class="ar__dialog-overlay" @click.self="addReplyDialogVisible = false">
+              <div class="ar__dialog ar__dialog--reply">
+                <div class="ar__dialog-header">添加回复</div>
+                <div class="ar__dialog-body ar__dialog-body--reply">
+                  <div class="ar__dialog-left">
+                    <div class="ar__dialog-img-list">
+                      <div v-for="(url, idx) in addReplyImageUrls" :key="idx" class="ar__dialog-img-item">
+                        <img :src="url" />
+                        <button class="ar__dialog-img-del" @click="addReplyImageUrls.splice(idx, 1)">×</button>
+                      </div>
+                    </div>
+                  <div :class="addReplyImageUrls.length ? 'ar__kw-upload-sm' : 'ar__kw-upload-lg'">
+                    <ImageUploader v-if="selectedAccountId" :account-id="selectedAccountId" @update:model-value="(v: string) => v && addReplyImageUrls.push(v)" />
+                  </div>
+                  </div>
+                  <div class="ar__dialog-right">
+                    <textarea class="ar__dialog-textarea" v-model="addReplyText" placeholder="输入回复文本（可选）"></textarea>
+                  </div>
+                </div>
+                <div class="ar__dialog-actions">
+                  <button class="ar__dialog-btn ar__dialog-btn--cancel" @click="addReplyDialogVisible = false; addReplyText = ''; addReplyImageUrls = []">取消</button>
+                  <button class="ar__dialog-btn ar__dialog-btn--confirm" @click="handleAddReplyFromDialog" :disabled="!addReplyText.trim() && addReplyImageUrls.length === 0">确定</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
+
+          <!-- Tab Switch: Data / Chat (only in AI reply mode) -->
+          <div v-if="replyModeTab === 'ai'" class="ar__tab-group">
             <button
               class="ar__tab-btn"
               :class="{ 'ar__tab-btn--active': rightTab === 'data' }"
@@ -362,7 +587,7 @@ onMounted(() => {
           </div>
 
           <!-- ====== 知识资料视图 ====== -->
-          <template v-if="rightTab === 'data'">
+          <template v-if="replyModeTab === 'ai' && rightTab === 'data'">
             <!-- Fixed material section -->
             <div class="ar__config-section">
               <div class="ar__config-section-header" @click="toggleFixedMaterialExpanded">
@@ -522,7 +747,7 @@ onMounted(() => {
           </template>
 
           <!-- ====== AI 对话视图 ====== -->
-          <template v-if="rightTab === 'chat'">
+          <template v-if="replyModeTab === 'ai' && rightTab === 'chat'">
             <div class="ar__chat-container">
               <!-- Chat messages -->
               <div

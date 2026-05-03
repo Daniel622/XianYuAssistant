@@ -169,8 +169,9 @@ CREATE TABLE IF NOT EXISTS xianyu_goods_config (
     xianyu_goods_id BIGINT,                           -- 本地闲鱼商品ID
     xy_goods_id VARCHAR(100) NOT NULL,                -- 闲鱼的商品ID
     xianyu_auto_delivery_on TINYINT DEFAULT 0,        -- 自动发货开关：1-开启，0-关闭，默认关闭
-    xianyu_auto_reply_on TINYINT DEFAULT 0,           -- 自动回复开关：1-开启，0-关闭，默认关闭
-    xianyu_auto_reply_context_on TINYINT DEFAULT 1,   -- 携带上下文开关：1-开启，0-关闭，默认开启，跟随自动回复开关
+    xianyu_auto_reply_on TINYINT DEFAULT 0,           -- AI回复开关：1-开启，0-关闭，默认关闭
+    xianyu_auto_reply_context_on TINYINT DEFAULT 1,   -- 携带上下文开关：1-开启，0-关闭，默认开启，跟随AI回复开关
+    xianyu_keyword_reply_on TINYINT DEFAULT 0,        -- 关键词回复开关：1-开启，0-关闭，默认关闭
     fixed_material TEXT,                              -- 固定资料（用于AI自动回复）
     create_time DATETIME DEFAULT (datetime('now', 'localtime')),   -- 创建时间
     update_time DATETIME DEFAULT (datetime('now', 'localtime')),   -- 更新时间
@@ -410,4 +411,32 @@ CREATE INDEX IF NOT EXISTS idx_kami_usage_config_id ON xianyu_kami_usage_record(
 CREATE INDEX IF NOT EXISTS idx_kami_usage_order_id ON xianyu_kami_usage_record(order_id);
 CREATE INDEX IF NOT EXISTS idx_kami_usage_account_id ON xianyu_kami_usage_record(xianyu_account_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_kami_usage_unique ON xianyu_kami_usage_record(kami_item_id, order_id);
+
+-- 商品关键词回复规则表
+CREATE TABLE IF NOT EXISTS xianyu_keyword_reply_rule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    xianyu_account_id BIGINT NOT NULL,                -- 闲鱼账号ID
+    xy_goods_id VARCHAR(100) NOT NULL,                -- 闲鱼的商品ID
+    keyword VARCHAR(200) NOT NULL,                    -- 匹配关键词
+    match_mode INTEGER DEFAULT 1,                     -- 匹配模式: 1=模糊匹配, 2=精准匹配
+    is_fallback INTEGER DEFAULT 0,                    -- 是否为未匹配兜底规则: 0=否, 1=是
+    create_time DATETIME DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (xianyu_account_id) REFERENCES xianyu_account(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_keyword_rule_account_id ON xianyu_keyword_reply_rule(xianyu_account_id);
+CREATE INDEX IF NOT EXISTS idx_keyword_rule_goods_id ON xianyu_keyword_reply_rule(xy_goods_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_keyword_rule_unique ON xianyu_keyword_reply_rule(xianyu_account_id, xy_goods_id, keyword) WHERE is_fallback = 0;
+
+-- 商品关键词回复内容表
+CREATE TABLE IF NOT EXISTS xianyu_keyword_reply_content (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id BIGINT NOT NULL,                          -- 关联关键词规则ID
+    reply_text TEXT,                                  -- 回复文本内容
+    reply_image_url TEXT,                             -- 回复图片URL
+    create_time DATETIME DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (rule_id) REFERENCES xianyu_keyword_reply_rule(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_keyword_content_rule_id ON xianyu_keyword_reply_content(rule_id);
 

@@ -47,4 +47,6 @@ public interface AIService {
     List<RAGDataRespBO> queryRAGDataBygoodsId(String goodsId);
 
     void deleteRAGDataByDocumentId(String documentId);
+
+    String simpleChat(String message);
 }

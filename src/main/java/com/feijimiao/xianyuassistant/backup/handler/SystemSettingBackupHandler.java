@@ -48,7 +48,7 @@ public class SystemSettingBackupHandler implements DataBackupHandler {
     }
 
     @Override
-    public void importData(Map<String, Object> data) {
+    public void importData(Map<String, Object> data, Map<String, Object> context) {
         if (data == null) return;
 
         @SuppressWarnings("unchecked")
@@ -56,26 +56,30 @@ public class SystemSettingBackupHandler implements DataBackupHandler {
         if (settingMaps == null) return;
 
         for (Map<String, Object> map : settingMaps) {
-            String settingKey = (String) map.get("settingKey");
-            String settingValue = (String) map.get("settingValue");
-            String settingDesc = (String) map.get("settingDesc");
+            try {
+                String settingKey = (String) map.get("settingKey");
+                String settingValue = (String) map.get("settingValue");
+                String settingDesc = (String) map.get("settingDesc");
 
-            if (settingKey == null || !BACKUP_KEYS.contains(settingKey)) continue;
+                if (settingKey == null || !BACKUP_KEYS.contains(settingKey)) continue;
 
-            LambdaQueryWrapper<XianyuSysSetting> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(XianyuSysSetting::getSettingKey, settingKey);
-            XianyuSysSetting existing = sysSettingMapper.selectOne(wrapper);
+                LambdaQueryWrapper<XianyuSysSetting> wrapper = new LambdaQueryWrapper<>();
+                wrapper.eq(XianyuSysSetting::getSettingKey, settingKey);
+                XianyuSysSetting existing = sysSettingMapper.selectOne(wrapper);
 
-            if (existing == null) {
-                XianyuSysSetting setting = new XianyuSysSetting();
-                setting.setSettingKey(settingKey);
-                setting.setSettingValue(settingValue);
-                setting.setSettingDesc(settingDesc);
-                sysSettingMapper.insert(setting);
-            } else {
-                existing.setSettingValue(settingValue);
-                existing.setSettingDesc(settingDesc);
-                sysSettingMapper.updateById(existing);
+                if (existing == null) {
+                    XianyuSysSetting setting = new XianyuSysSetting();
+                    setting.setSettingKey(settingKey);
+                    setting.setSettingValue(settingValue);
+                    setting.setSettingDesc(settingDesc);
+                    sysSettingMapper.insert(setting);
+                } else {
+                    existing.setSettingValue(settingValue);
+                    existing.setSettingDesc(settingDesc);
+                    sysSettingMapper.updateById(existing);
+                }
+            } catch (Exception e) {
+                log.warn("[SystemSettingBackup] 导入单条系统设置失败: {}", e.getMessage());
             }
         }
     }

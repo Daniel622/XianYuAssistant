@@ -315,6 +315,10 @@ onUnmounted(() => {
   font-weight: 600;
   color: #1a1a1a;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  min-width: 0;
 }
 
 .header-title-section {
@@ -322,13 +326,18 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   flex: 1;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .header-page-icon {
   width: 24px;
   height: 24px;
   color: #1a1a1a;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .header-content-slot {
@@ -358,6 +367,10 @@ onUnmounted(() => {
   font-weight: 600;
   color: #1a1a1a;
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  min-width: 0;
 }
 
 .header-content-slot {

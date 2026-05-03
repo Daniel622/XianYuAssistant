@@ -658,4 +658,21 @@ public class AIServiceImpl implements AIService {
         log.debug("[AI Chat] 使用默认相似度阈值: {}", DEFAULT_SIMILARITY_THRESHOLD);
         return DEFAULT_SIMILARITY_THRESHOLD;
     }
+
+    @Override
+    public String simpleChat(String message) {
+        ChatClient chatClient = dynamicAIChatClientManager.getChatClient();
+        if (chatClient == null) {
+            return null;
+        }
+        try {
+            return chatClient.prompt()
+                    .user(message)
+                    .call()
+                    .content();
+        } catch (Exception e) {
+            log.error("[AI simpleChat] 调用失败: {}", e.getMessage());
+            return null;
+        }
+    }
 }

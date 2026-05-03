@@ -36,27 +36,39 @@ public class GoodsBackupHandler implements DataBackupHandler {
     }
 
     @Override
-    public void importData(Map<String, Object> data) {
+    public void importData(Map<String, Object> data, Map<String, Object> context) {
         if (data == null) return;
+
+        @SuppressWarnings("unchecked")
+        Map<Long, Long> accountIdMapping = context.get("accountIdMapping") != null
+                ? (Map<Long, Long>) context.get("accountIdMapping")
+                : Collections.emptyMap();
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> goodsMaps = (List<Map<String, Object>>) data.get("goodsList");
         if (goodsMaps == null) return;
 
         for (Map<String, Object> map : goodsMaps) {
-            XianyuGoodsInfo goods = mapToGoodsInfo(map);
-            if (goods == null) continue;
+            try {
+                XianyuGoodsInfo goods = mapToGoodsInfo(map);
+                if (goods == null) continue;
 
-            LambdaQueryWrapper<XianyuGoodsInfo> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(XianyuGoodsInfo::getXyGoodId, goods.getXyGoodId())
-                   .eq(XianyuGoodsInfo::getXianyuAccountId, goods.getXianyuAccountId());
-            XianyuGoodsInfo existing = goodsInfoMapper.selectOne(wrapper);
-            if (existing == null) {
-                goods.setId(null);
-                goodsInfoMapper.insert(goods);
-            } else {
-                goods.setId(existing.getId());
-                goodsInfoMapper.updateById(goods);
+                if (goods.getXianyuAccountId() != null && accountIdMapping.containsKey(goods.getXianyuAccountId())) {
+                    goods.setXianyuAccountId(accountIdMapping.get(goods.getXianyuAccountId()));
+                }
+
+                LambdaQueryWrapper<XianyuGoodsInfo> wrapper = new LambdaQueryWrapper<>();
+                wrapper.eq(XianyuGoodsInfo::getXyGoodId, goods.getXyGoodId());
+                XianyuGoodsInfo existing = goodsInfoMapper.selectOne(wrapper);
+                if (existing == null) {
+                    goods.setId(null);
+                    goodsInfoMapper.insert(goods);
+                } else {
+                    goods.setId(existing.getId());
+                    goodsInfoMapper.updateById(goods);
+                }
+            } catch (Exception e) {
+                log.warn("[GoodsBackup] 导入单条商品数据失败: {}", e.getMessage());
             }
         }
     }

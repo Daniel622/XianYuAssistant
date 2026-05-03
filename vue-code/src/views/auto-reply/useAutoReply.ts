@@ -9,6 +9,8 @@ import { showSuccess, showError, showInfo } from '@/utils'
 import { ElMessage } from 'element-plus'
 import type { Account } from '@/types'
 import type { GoodsItemWithConfig } from '@/api/goods'
+import { getKeywordReplyRules, addKeywordRule, deleteKeywordRule, addKeywordContent, deleteKeywordContent, updateKeywordContent, updateKeywordRuleMatchMode, ensureFallbackRule } from '@/api/keywordReply'
+import type { KeywordReplyRule, KeywordReplyContent } from '@/api/keywordReply'
 
 // 聊天消息类型
 export interface ChatMessage {
@@ -344,6 +346,277 @@ export function useAutoReply() {
   const toggleFixedMaterialExpanded = () => {
     fixedMaterialExpanded.value = !fixedMaterialExpanded.value
   }
+
+  // ===== Keyword Reply =====
+  const replyModeTab = ref<'ai' | 'keyword'>('ai')
+  const keywordRules = ref<KeywordReplyRule[]>([])
+  const newKeyword = ref('')
+  const newContentText = ref<Record<number, string>>({})
+  const newContentImage = ref<Record<number, string>>({})
+  const selectedKeywordRuleId = ref<string | number | null>(null)
+  const showAddKeywordInput = ref(false)
+  const addKeywordDialogVisible = ref(false)
+  const addReplyDialogVisible = ref(false)
+  const addReplyText = ref('')
+  const addReplyImageUrls = ref<string[]>([])
+  const fallbackRule = ref<KeywordReplyRule | null>(null)
+  const fallbackText = ref('')
+  const fallbackImageUrls = ref<string[]>([])
+  const fallbackExpanded = ref(true)
+
+  const selectedKeywordRule = computed(() => {
+    if (!selectedKeywordRuleId.value) return null
+    return keywordRules.value.find(r => r.id === selectedKeywordRuleId.value) || null
+  })
+
+  const loadKeywordRules = async () => {
+    if (!selectedGoods.value || !selectedAccountId.value) return
+    try {
+      const res = await getKeywordReplyRules({
+        xianyuAccountId: selectedAccountId.value,
+        xyGoodsId: selectedGoods.value.item.xyGoodId
+      })
+      const allRules: KeywordReplyRule[] = (res as any)?.data || res || []
+      keywordRules.value = allRules.filter(r => !r.isFallback || r.isFallback === 0)
+      const fb = allRules.find(r => r.isFallback === 1)
+      if (fb) {
+        fallbackRule.value = fb
+        fallbackText.value = fb.contents?.length ? fb.contents.find(c => c.replyText)?.replyText || '' : ''
+        fallbackImageUrls.value = fb.contents?.length ? fb.contents.filter(c => c.replyImageUrl).map(c => c.replyImageUrl!) : []
+        fallbackExpanded.value = !fb.contents?.length
+      } else {
+        fallbackRule.value = null
+        fallbackText.value = ''
+        fallbackImageUrls.value = []
+        fallbackExpanded.value = true
+      }
+    } catch (e) {
+      keywordRules.value = []
+      fallbackRule.value = null
+      fallbackText.value = ''
+      fallbackImageUrls.value = []
+      fallbackExpanded.value = true
+    }
+  }
+
+  const toggleKeywordReply = async (checked: boolean) => {
+    if (!selectedGoods.value || !selectedAccountId.value) {
+      showInfo('请先选择商品')
+      return
+    }
+
+    try {
+      const response = await updateAutoReplyStatus({
+        xianyuAccountId: selectedAccountId.value,
+        xyGoodsId: selectedGoods.value.item.xyGoodId,
+        xianyuAutoReplyOn: selectedGoods.value.xianyuAutoReplyOn,
+        xianyuAutoReplyContextOn: selectedGoods.value.xianyuAutoReplyContextOn,
+        xianyuKeywordReplyOn: checked ? 1 : 0
+      } as any)
+
+      if (response.code === 0 || response.code === 200) {
+        showSuccess(`关键词回复${checked ? '开启' : '关闭'}成功`)
+        if (selectedGoods.value) {
+          selectedGoods.value.xianyuKeywordReplyOn = checked ? 1 : 0
+        }
+        const goodsItem = goodsList.value.find(item => item.item.xyGoodId === selectedGoods.value?.item.xyGoodId)
+        if (goodsItem) {
+          goodsItem.xianyuKeywordReplyOn = checked ? 1 : 0
+        }
+        await loadKeywordRules()
+      } else {
+        throw new Error(response.msg || '操作失败')
+      }
+    } catch (error: any) {
+      console.error('操作失败:', error)
+      if (selectedGoods.value) {
+        selectedGoods.value.xianyuKeywordReplyOn = checked ? 0 : 1
+      }
+    }
+  }
+
+  const handleAddKeyword = async () => {
+    if (!selectedGoods.value || !selectedAccountId.value || !newKeyword.value.trim()) return
+    try {
+      const res = await addKeywordRule({
+        xianyuAccountId: selectedAccountId.value,
+        xyGoodsId: selectedGoods.value.item.xyGoodId,
+        keyword: newKeyword.value.trim()
+      })
+      const rule = (res as any)?.data || res
+      if (rule) {
+        keywordRules.value.push(rule)
+        selectedKeywordRuleId.value = rule.id
+      }
+      newKeyword.value = ''
+      showAddKeywordInput.value = false
+    } catch (e: any) {
+      showError(e?.message || '添加关键词失败')
+    }
+  }
+
+  const handleAddKeywordFromDialog = async () => {
+    if (!newKeyword.value.trim()) return
+    await handleAddKeyword()
+    addKeywordDialogVisible.value = false
+  }
+
+  const handleUpdateMatchMode = async (ruleId: number, matchMode: number) => {
+    try {
+      await updateKeywordRuleMatchMode({ ruleId, matchMode })
+      const rule = keywordRules.value.find(r => r.id === ruleId)
+      if (rule) {
+        rule.matchMode = matchMode
+      }
+      showSuccess('匹配模式修改成功')
+    } catch (e: any) {
+      showError(e?.message || '更新匹配模式失败')
+    }
+  }
+
+  const handleSaveFallbackText = async () => {
+    if (!selectedGoods.value || !selectedAccountId.value) return
+    try {
+      let rule = fallbackRule.value
+      if (!rule) {
+        const res = await ensureFallbackRule({
+          xianyuAccountId: selectedAccountId.value,
+          xyGoodsId: selectedGoods.value.item.xyGoodId
+        })
+        rule = (res as any)?.data || res || null
+        fallbackRule.value = rule
+      }
+      if (!rule) return
+
+      const text = fallbackText.value.trim()
+      const images = fallbackImageUrls.value.filter(u => u.trim())
+      const hasContent = text || images.length > 0
+
+      if (rule.contents?.length) {
+        await Promise.all(rule.contents.map(c => deleteKeywordContent({ contentId: c.id })))
+        rule.contents = []
+      }
+
+      if (hasContent) {
+        rule.contents = []
+        for (const image of images) {
+          const res = await addKeywordContent({ ruleId: rule.id, replyText: '', replyImageUrl: image })
+          const content = (res as any)?.data || res
+          if (content) rule.contents.push(content)
+        }
+        if (text) {
+          const res = await addKeywordContent({ ruleId: rule.id, replyText: text, replyImageUrl: '' })
+          const content = (res as any)?.data || res
+          if (content) rule.contents.push(content)
+        }
+      }
+      showSuccess('未匹配回复保存成功')
+      fallbackExpanded.value = false
+    } catch (e: any) {
+      showError(e?.message || '保存未匹配回复失败')
+    }
+  }
+
+  const handleAddReplyFromDialog = async () => {
+    if (!selectedKeywordRuleId.value) return
+    const text = addReplyText.value.trim()
+    const images = addReplyImageUrls.value.filter(u => u.trim())
+    if (!text && images.length === 0) return
+    try {
+      const rule = keywordRules.value.find(r => r.id === selectedKeywordRuleId.value)
+      if (!rule) return
+      rule.contents = rule.contents || []
+      for (const image of images) {
+        const res = await addKeywordContent({ ruleId: selectedKeywordRuleId.value, replyText: '', replyImageUrl: image })
+        const content = (res as any)?.data || res
+        if (content) rule.contents.push(content)
+      }
+      if (text) {
+        const res = await addKeywordContent({ ruleId: selectedKeywordRuleId.value, replyText: text, replyImageUrl: '' })
+        const content = (res as any)?.data || res
+        if (content) rule.contents.push(content)
+      }
+      addReplyText.value = ''
+      addReplyImageUrls.value = []
+      addReplyDialogVisible.value = false
+    } catch (e: any) {
+      showError(e?.message || '添加回复失败')
+    }
+  }
+
+  const handleDeleteRule = async (ruleId: number) => {
+    try {
+      await deleteKeywordRule({ ruleId })
+      keywordRules.value = keywordRules.value.filter(r => r.id !== ruleId)
+      if (selectedKeywordRuleId.value === ruleId) {
+        selectedKeywordRuleId.value = keywordRules.value.length > 0 ? keywordRules.value[0].id : null
+      }
+    } catch (e: any) {
+      showError(e?.message || '删除关键词规则失败')
+    }
+  }
+
+  const handleAddContent = async (ruleId: number) => {
+    try {
+      const res = await addKeywordContent({ ruleId, replyText: '', replyImageUrl: '' })
+      const content = (res as any)?.data || res
+      const rule = keywordRules.value.find(r => r.id === ruleId)
+      if (rule && content) {
+        rule.contents = rule.contents || []
+        rule.contents.push(content)
+      }
+    } catch (e: any) {
+      showError(e?.message || '添加回复内容失败')
+    }
+  }
+
+  const handleContentTextChange = async (content: KeywordReplyContent, newText: string) => {
+    try {
+      await updateKeywordContent({ contentId: content.id, replyText: newText, replyImageUrl: content.replyImageUrl })
+      content.replyText = newText
+    } catch (e: any) {
+      showError(e?.message || '更新回复文本失败')
+    }
+  }
+
+  const handleContentImageUpload = async (content: KeywordReplyContent, imageUrl: string) => {
+    try {
+      await updateKeywordContent({ contentId: content.id, replyText: content.replyText, replyImageUrl: imageUrl })
+      content.replyImageUrl = imageUrl
+    } catch (e: any) {
+      showError(e?.message || '更新回复图片失败')
+    }
+  }
+
+  const handleContentImageDelete = async (content: KeywordReplyContent) => {
+    try {
+      await updateKeywordContent({ contentId: content.id, replyText: content.replyText, replyImageUrl: '' })
+      content.replyImageUrl = ''
+    } catch (e: any) {
+      showError(e?.message || '删除回复图片失败')
+    }
+  }
+
+  const handleDeleteContent = async (contentId: number, ruleId: number) => {
+    try {
+      await deleteKeywordContent({ contentId })
+      const rule = keywordRules.value.find(r => r.id === ruleId)
+      if (rule) {
+        rule.contents = rule.contents.filter(c => c.id !== contentId)
+      }
+    } catch (e: any) {
+      showError(e?.message || '删除回复内容失败')
+    }
+  }
+
+  // Watch selected goods to load keyword rules
+  watch(() => selectedGoods.value, (newVal) => {
+    if (newVal) {
+      loadKeywordRules()
+    } else {
+      keywordRules.value = []
+    }
+  })
 
   // Load auto reply config
   const loadConfig = async () => {
@@ -910,6 +1183,35 @@ export function useAutoReply() {
     parseTriggerContext,
     handleSaveFixedMaterial,
     handleSyncDetailToFixedMaterial,
-    toggleFixedMaterialExpanded
+    toggleFixedMaterialExpanded,
+
+    keywordRules,
+    newKeyword,
+    newContentText,
+    newContentImage,
+    toggleKeywordReply,
+    handleAddKeyword,
+    handleDeleteRule,
+    handleAddContent,
+    handleDeleteContent,
+    replyModeTab,
+    selectedKeywordRuleId,
+    selectedKeywordRule,
+    handleContentTextChange,
+    handleContentImageUpload,
+    handleContentImageDelete,
+    showAddKeywordInput,
+    addKeywordDialogVisible,
+    addReplyDialogVisible,
+    addReplyText,
+    addReplyImageUrls,
+    handleAddKeywordFromDialog,
+    handleAddReplyFromDialog,
+    handleUpdateMatchMode,
+    fallbackRule,
+    fallbackText,
+    fallbackImageUrls,
+    fallbackExpanded,
+    handleSaveFallbackText
   }
 }

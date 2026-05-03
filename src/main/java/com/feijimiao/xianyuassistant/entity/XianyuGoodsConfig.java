@@ -43,6 +43,8 @@ public class XianyuGoodsConfig {
      */
     private Integer xianyuAutoReplyContextOn;
     
+    private Integer xianyuKeywordReplyOn;
+    
     /**
      * 固定资料（用于AI自动回复）
      */

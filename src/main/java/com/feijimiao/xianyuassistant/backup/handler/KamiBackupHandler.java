@@ -44,8 +44,13 @@ public class KamiBackupHandler implements DataBackupHandler {
     }
 
     @Override
-    public void importData(Map<String, Object> data) {
+    public void importData(Map<String, Object> data, Map<String, Object> context) {
         if (data == null) return;
+
+        @SuppressWarnings("unchecked")
+        Map<Long, Long> accountIdMapping = context.get("accountIdMapping") != null
+                ? (Map<Long, Long>) context.get("accountIdMapping")
+                : Collections.emptyMap();
 
         Map<Long, Long> oldToNewConfigId = new HashMap<>();
 
@@ -53,27 +58,35 @@ public class KamiBackupHandler implements DataBackupHandler {
         List<Map<String, Object>> configMaps = (List<Map<String, Object>>) data.get("kamiConfigs");
         if (configMaps != null) {
             for (Map<String, Object> map : configMaps) {
-                XianyuKamiConfig config = mapToKamiConfig(map);
-                if (config == null) continue;
+                try {
+                    XianyuKamiConfig config = mapToKamiConfig(map);
+                    if (config == null) continue;
 
-                Long oldId = map.get("id") != null ? ((Number) map.get("id")).longValue() : null;
+                    if (config.getXianyuAccountId() != null && accountIdMapping.containsKey(config.getXianyuAccountId())) {
+                        config.setXianyuAccountId(accountIdMapping.get(config.getXianyuAccountId()));
+                    }
 
-                LambdaQueryWrapper<XianyuKamiConfig> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(XianyuKamiConfig::getAliasName, config.getAliasName())
-                       .eq(XianyuKamiConfig::getXianyuAccountId, config.getXianyuAccountId());
-                XianyuKamiConfig existing = kamiConfigMapper.selectOne(wrapper);
-                if (existing == null) {
-                    config.setId(null);
-                    kamiConfigMapper.insert(config);
-                    if (oldId != null) {
-                        oldToNewConfigId.put(oldId, config.getId());
+                    Long oldId = map.get("id") != null ? ((Number) map.get("id")).longValue() : null;
+
+                    LambdaQueryWrapper<XianyuKamiConfig> wrapper = new LambdaQueryWrapper<>();
+                    wrapper.eq(XianyuKamiConfig::getAliasName, config.getAliasName())
+                           .eq(XianyuKamiConfig::getXianyuAccountId, config.getXianyuAccountId());
+                    XianyuKamiConfig existing = kamiConfigMapper.selectOne(wrapper);
+                    if (existing == null) {
+                        config.setId(null);
+                        kamiConfigMapper.insert(config);
+                        if (oldId != null) {
+                            oldToNewConfigId.put(oldId, config.getId());
+                        }
+                    } else {
+                        if (oldId != null) {
+                            oldToNewConfigId.put(oldId, existing.getId());
+                        }
+                        config.setId(existing.getId());
+                        kamiConfigMapper.updateById(config);
                     }
-                } else {
-                    if (oldId != null) {
-                        oldToNewConfigId.put(oldId, existing.getId());
-                    }
-                    config.setId(existing.getId());
-                    kamiConfigMapper.updateById(config);
+                } catch (Exception e) {
+                    log.warn("[KamiBackup] 导入单条卡密配置失败: {}", e.getMessage());
                 }
             }
         }
@@ -82,23 +95,27 @@ public class KamiBackupHandler implements DataBackupHandler {
         List<Map<String, Object>> itemMaps = (List<Map<String, Object>>) data.get("kamiItems");
         if (itemMaps != null) {
             for (Map<String, Object> map : itemMaps) {
-                XianyuKamiItem item = mapToKamiItem(map);
-                if (item == null) continue;
+                try {
+                    XianyuKamiItem item = mapToKamiItem(map);
+                    if (item == null) continue;
 
-                Long oldConfigId = map.get("kamiConfigId") != null ? ((Number) map.get("kamiConfigId")).longValue() : null;
-                if (oldConfigId != null && oldToNewConfigId.containsKey(oldConfigId)) {
-                    item.setKamiConfigId(oldToNewConfigId.get(oldConfigId));
-                }
+                    Long oldConfigId = map.get("kamiConfigId") != null ? ((Number) map.get("kamiConfigId")).longValue() : null;
+                    if (oldConfigId != null && oldToNewConfigId.containsKey(oldConfigId)) {
+                        item.setKamiConfigId(oldToNewConfigId.get(oldConfigId));
+                    }
 
-                if (item.getKamiConfigId() == null) continue;
+                    if (item.getKamiConfigId() == null) continue;
 
-                LambdaQueryWrapper<XianyuKamiItem> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(XianyuKamiItem::getKamiConfigId, item.getKamiConfigId())
-                       .eq(XianyuKamiItem::getKamiContent, item.getKamiContent());
-                XianyuKamiItem existing = kamiItemMapper.selectOne(wrapper);
-                if (existing == null) {
-                    item.setId(null);
-                    kamiItemMapper.insert(item);
+                    LambdaQueryWrapper<XianyuKamiItem> wrapper = new LambdaQueryWrapper<>();
+                    wrapper.eq(XianyuKamiItem::getKamiConfigId, item.getKamiConfigId())
+                           .eq(XianyuKamiItem::getKamiContent, item.getKamiContent());
+                    XianyuKamiItem existing = kamiItemMapper.selectOne(wrapper);
+                    if (existing == null) {
+                        item.setId(null);
+                        kamiItemMapper.insert(item);
+                    }
+                } catch (Exception e) {
+                    log.warn("[KamiBackup] 导入单条卡密项失败: {}", e.getMessage());
                 }
             }
         }

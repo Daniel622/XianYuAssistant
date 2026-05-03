@@ -670,6 +670,10 @@
     display: none;
   }
 
+  .goods__title-row {
+    display: none !important;
+  }
+
   .goods__filter-bar {
     margin-bottom: var(--d-space-3);
   }

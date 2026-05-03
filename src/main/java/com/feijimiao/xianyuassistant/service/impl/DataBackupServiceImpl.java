@@ -96,6 +96,8 @@ public class DataBackupServiceImpl implements DataBackupService {
             handlerMap.put(handler.getModuleKey(), handler);
         }
 
+        Map<String, Object> importContext = new LinkedHashMap<>();
+
         for (String moduleKey : modulesData.keySet()) {
             if (moduleKey.startsWith("_")) continue;
             if (selectedModules != null && !selectedModules.contains(moduleKey)) continue;
@@ -110,7 +112,7 @@ public class DataBackupServiceImpl implements DataBackupService {
             try {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> moduleData = (Map<String, Object>) modulesData.get(moduleKey);
-                handler.importData(moduleData);
+                handler.importData(moduleData, importContext);
                 successCount++;
                 log.info("[DataBackup] 导入模块 {} 成功", moduleKey);
             } catch (Exception e) {
