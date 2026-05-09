@@ -274,6 +274,12 @@ public class AutoDeliveryServiceImpl implements AutoDeliveryService {
             dto.setState(record.getState());
             dto.setConfirmState(record.getConfirmState());
             dto.setOrderId(record.getOrderId());
+            dto.setSkuName(record.getSkuName());
+            dto.setOrderCreateTime(record.getOrderCreateTime());
+            dto.setPaySuccessTime(record.getPaySuccessTime());
+            dto.setConsignTime(record.getConsignTime());
+            dto.setTotalPrice(record.getTotalPrice());
+            dto.setBuyNum(record.getBuyNum());
             dto.setCreateTime(record.getCreateTime());
             recordDTOs.add(dto);
         }
@@ -352,16 +358,19 @@ public class AutoDeliveryServiceImpl implements AutoDeliveryService {
                 return;
             }
 
-            String orderSkuId = fetchOrderSkuId(accountId, xyGoodsId, orderId);
-            String skuName = null;
-            log.info("【账号{}】订单SKU: orderId={}, skuId={}", accountId, orderId, orderSkuId);
+            OrderDetailInfo orderDetail = fetchOrderDetailInfo(accountId, xyGoodsId, orderId);
+            String orderSkuId = orderDetail != null ? orderDetail.skuId : null;
+            String skuName = orderDetail != null ? orderDetail.skuName : null;
+            int buyNum = (orderDetail != null && orderDetail.buyNum != null && orderDetail.buyNum > 0) ? orderDetail.buyNum : 1;
+            log.info("【账号{}】订单SKU: orderId={}, skuId={}, buyNum={}", accountId, orderId, orderSkuId, buyNum);
+
+            if (orderDetail != null) {
+                orderMapper.updateOrderDetail(recordId, orderDetail.buyerUserName, orderDetail.orderCreateTime, orderDetail.paySuccessTime, orderDetail.consignTime, orderDetail.skuName, orderDetail.goodsTitle, orderDetail.totalPrice, orderDetail.buyNum);
+            }
 
             XianyuGoodsAutoDeliveryConfig deliveryConfig = null;
             if (orderSkuId != null && !orderSkuId.isEmpty()) {
                 deliveryConfig = autoDeliveryConfigMapper.findByAccountIdAndGoodsIdAndSkuId(accountId, xyGoodsId, orderSkuId);
-                if (deliveryConfig != null) {
-                    skuName = deliveryConfig.getSkuName();
-                }
             }
             if (deliveryConfig == null) {
                 deliveryConfig = autoDeliveryConfigMapper.findByAccountIdAndGoodsIdNoSku(accountId, xyGoodsId);
@@ -373,50 +382,66 @@ public class AutoDeliveryServiceImpl implements AutoDeliveryService {
                 return;
             }
 
-            if (skuName != null) {
-                orderMapper.updateSkuName(recordId, skuName);
-            }
-
             int deliveryMode = deliveryConfig.getDeliveryMode() != null ? deliveryConfig.getDeliveryMode() : 1;
-            String content = resolveDeliveryContent(deliveryMode, deliveryConfig, recordId, accountId, xyGoodsId, sId, orderId, buyerUserName);
-            if (content == null) {
-                return;
-            }
-
-            if (needHumanLikeDelay) {
-                log.debug("【账号{}】模拟人工操作延迟...", accountId);
-                HumanLikeDelayUtils.mediumDelay();
-                HumanLikeDelayUtils.thinkingDelay();
-                HumanLikeDelayUtils.typingDelay(content.length());
-            }
-
             String cid = sId.replace("@goofish", "");
             String toId = cid;
+            boolean anySuccess = false;
+            StringBuilder allContent = new StringBuilder();
 
-            log.info("【账号{}】准备发送发货文本: content长度={}, deliveryMode={}", accountId, content.length(), deliveryMode);
-            boolean success = webSocketService.sendMessage(accountId, cid, toId, content);
+            for (int i = 0; i < buyNum; i++) {
+                log.info("【账号{}】发货第{}/{}次: orderId={}", accountId, i + 1, buyNum, orderId);
 
-            if (success && needHumanLikeDelay) {
-                HumanLikeDelayUtils.thinkingDelay();
+                String content = resolveDeliveryContent(deliveryMode, deliveryConfig, recordId, accountId, xyGoodsId, sId, orderId, buyerUserName);
+                if (content == null) {
+                    if (i == 0) {
+                        return;
+                    }
+                    break;
+                }
+
+                if (needHumanLikeDelay) {
+                    if (i > 0) {
+                        HumanLikeDelayUtils.thinkingDelay();
+                    }
+                    HumanLikeDelayUtils.mediumDelay();
+                    HumanLikeDelayUtils.thinkingDelay();
+                    HumanLikeDelayUtils.typingDelay(content.length());
+                }
+
+                log.info("【账号{}】准备发送发货文本[{}/{}]: content长度={}, deliveryMode={}", accountId, i + 1, buyNum, content.length(), deliveryMode);
+                boolean success = webSocketService.sendMessage(accountId, cid, toId, content);
+
+                if (success && needHumanLikeDelay) {
+                    HumanLikeDelayUtils.thinkingDelay();
+                }
+
+                sendDeliveryImages(accountId, xyGoodsId, cid, toId, deliveryConfig, needHumanLikeDelay);
+
+                if (success) {
+                    anySuccess = true;
+                    if (allContent.length() > 0) allContent.append("\n");
+                    allContent.append(content);
+                    log.info("【账号{}】✅ 发货成功[{}/{}]: recordId={}, deliveryMode={}", accountId, i + 1, buyNum, recordId, deliveryMode);
+                    sentMessageSaveService.saveAiAssistantReply(accountId, cid, toId, content, xyGoodsId);
+                } else {
+                    log.error("【账号{}】❌ 发货失败[{}/{}]: recordId={}", accountId, i + 1, buyNum, recordId);
+                    if (i == 0) {
+                        updateRecordState(recordId, -1, content, "消息发送失败");
+                        emailNotifyService.sendAutoDeliveryFailEmail(null, xyGoodsId, orderId, "消息发送失败");
+                        return;
+                    }
+                    break;
+                }
             }
 
-            sendDeliveryImages(accountId, xyGoodsId, cid, toId, deliveryConfig, needHumanLikeDelay);
-
-            if (success) {
-                log.info("【账号{}】✅ 自动发货成功: recordId={}, xyGoodsId={}, deliveryMode={}", accountId, recordId, xyGoodsId, deliveryMode);
-                updateRecordState(recordId, 1, content, null);
-                sentMessageSaveService.saveAiAssistantReply(accountId, cid, toId, content, xyGoodsId);
-
+            if (anySuccess) {
+                updateRecordState(recordId, 1, allContent.toString(), null);
                 XianyuGoodsAutoDeliveryConfig baseConfig = autoDeliveryConfigMapper.findByAccountIdAndGoodsIdNoSku(accountId, xyGoodsId);
                 boolean autoConfirm = (baseConfig != null && baseConfig.getAutoConfirmShipment() != null && baseConfig.getAutoConfirmShipment() == 1);
                 if (autoConfirm) {
                     log.info("【账号{}】检测到自动确认发货开关已开启，准备自动确认发货: orderId={}", accountId, orderId);
                     executeAutoConfirmShipment(accountId, orderId);
                 }
-            } else {
-                log.error("【账号{}】❌ 自动发货失败(服务端拒绝): recordId={}, xyGoodsId={}", accountId, recordId, xyGoodsId);
-                updateRecordState(recordId, -1, content, "消息发送失败");
-                emailNotifyService.sendAutoDeliveryFailEmail(null, xyGoodsId, orderId, "消息发送失败");
             }
 
         } catch (Exception e) {
@@ -575,9 +600,27 @@ public class AutoDeliveryServiceImpl implements AutoDeliveryService {
     }
 
     private String fetchOrderSkuId(Long accountId, String xyGoodsId, String orderId) {
+        OrderDetailInfo info = fetchOrderDetailInfo(accountId, xyGoodsId, orderId);
+        return info != null ? info.skuId : null;
+    }
+
+    private static class OrderDetailInfo {
+        String skuId;
+        String skuName;
+        String buyerUserName;
+        String orderCreateTime;
+        String paySuccessTime;
+        String consignTime;
+        String goodsTitle;
+        String totalPrice;
+        Integer buyNum;
+    }
+
+    private OrderDetailInfo fetchOrderDetailInfo(Long accountId, String xyGoodsId, String orderId) {
         if (orderId == null || orderId.isEmpty()) {
             return null;
         }
+        OrderDetailInfo info = new OrderDetailInfo();
         try {
             String cookieStr = accountService.getCookieByAccountId(accountId);
             if (cookieStr == null || cookieStr.isEmpty()) {
@@ -614,6 +657,64 @@ public class AutoDeliveryServiceImpl implements AutoDeliveryService {
             @SuppressWarnings("unchecked")
             Map<String, Object> module = (Map<String, Object>) moduleObj;
 
+            Object merchantBuyerVO = module.get("merchantBuyerVO");
+            if (merchantBuyerVO instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> buyer = (Map<String, Object>) merchantBuyerVO;
+                Object userNick = buyer.get("userNick");
+                if (userNick instanceof String) {
+                    info.buyerUserName = (String) userNick;
+                }
+            }
+
+            Object merchantCommonData = module.get("merchantCommonData");
+            if (merchantCommonData instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> commonData = (Map<String, Object>) merchantCommonData;
+                Object createTime = commonData.get("createTime");
+                if (createTime instanceof String) {
+                    info.orderCreateTime = (String) createTime;
+                }
+                Object paySuccessTime = commonData.get("paySuccessTime");
+                if (paySuccessTime instanceof String) {
+                    info.paySuccessTime = (String) paySuccessTime;
+                }
+                Object consignTime = commonData.get("consignTime");
+                if (consignTime instanceof String) {
+                    info.consignTime = (String) consignTime;
+                }
+            }
+
+            Object merchantItemVO = module.get("merchantItemVO");
+            if (merchantItemVO instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> merchantItem = (Map<String, Object>) merchantItemVO;
+                Object title = merchantItem.get("title");
+                if (title instanceof String) {
+                    info.goodsTitle = (String) title;
+                }
+            }
+
+            Object merchantPriceVO = module.get("merchantPriceVO");
+            if (merchantPriceVO instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> priceVO = (Map<String, Object>) merchantPriceVO;
+                Object totalPrice = priceVO.get("totalPrice");
+                if (totalPrice instanceof String) {
+                    info.totalPrice = (String) totalPrice;
+                }
+                Object buyNum = priceVO.get("buyNum");
+                if (buyNum instanceof String) {
+                    try {
+                        info.buyNum = Integer.parseInt((String) buyNum);
+                    } catch (NumberFormatException e) {
+                        info.buyNum = 1;
+                    }
+                } else if (buyNum instanceof Number) {
+                    info.buyNum = ((Number) buyNum).intValue();
+                }
+            }
+
             Object orderInfoVO = module.get("orderInfoVO");
             if (orderInfoVO instanceof Map) {
                 @SuppressWarnings("unchecked")
@@ -628,41 +729,46 @@ public class AutoDeliveryServiceImpl implements AutoDeliveryService {
                         log.info("【账号{}】从订单详情获取skuInfo: orderId={}, skuInfo={}", accountId, orderId, skuInfoStr);
                         String skuValueText = parseSkuInfoToValueText(skuInfoStr);
                         if (skuValueText != null && !skuValueText.isEmpty()) {
+                            info.skuName = skuValueText;
                             String skuId = resolveSkuIdByText(accountId, xyGoodsId, skuValueText);
                             if (skuId != null) {
-                                return skuId;
+                                info.skuId = skuId;
                             }
                         }
                     }
                 }
             }
 
-            Object merchantItemVO = module.get("merchantItemVO");
-            if (merchantItemVO instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> merchantItem = (Map<String, Object>) merchantItemVO;
-                Object itemInfoLinesObj = merchantItem.get("itemInfoLines");
-                if (itemInfoLinesObj instanceof List) {
+            if (info.skuId == null) {
+                if (merchantItemVO instanceof Map) {
                     @SuppressWarnings("unchecked")
-                    List<Map<String, Object>> lines = (List<Map<String, Object>>) itemInfoLinesObj;
-                    for (Map<String, Object> line : lines) {
-                        Object key = line.get("key");
-                        Object value = line.get("value");
-                        if ("规格".equals(key) && value instanceof String) {
-                            log.info("【账号{}】从merchantItemVO获取规格: orderId={}, value={}", accountId, orderId, value);
-                            String skuId = resolveSkuIdByText(accountId, xyGoodsId, (String) value);
-                            if (skuId != null) {
-                                return skuId;
+                    Map<String, Object> merchantItem = (Map<String, Object>) merchantItemVO;
+                    Object itemInfoLinesObj = merchantItem.get("itemInfoLines");
+                    if (itemInfoLinesObj instanceof List) {
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> lines = (List<Map<String, Object>>) itemInfoLinesObj;
+                        for (Map<String, Object> line : lines) {
+                            Object key = line.get("key");
+                            Object value = line.get("value");
+                            if ("规格".equals(key) && value instanceof String) {
+                                log.info("【账号{}】从merchantItemVO获取规格: orderId={}, value={}", accountId, orderId, value);
+                                info.skuName = (String) value;
+                                String skuId = resolveSkuIdByText(accountId, xyGoodsId, (String) value);
+                                if (skuId != null) {
+                                    info.skuId = skuId;
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
 
-            log.info("【账号{}】订单详情中未找到SKU信息: orderId={}", accountId, orderId);
-            return null;
+            log.info("【账号{}】订单详情解析完成: orderId={}, skuId={}, buyerUserName={}, goodsTitle={}, totalPrice={}, buyNum={}",
+                    accountId, orderId, info.skuId, info.buyerUserName, info.goodsTitle, info.totalPrice, info.buyNum);
+            return info;
         } catch (Exception e) {
-            log.warn("【账号{}】获取订单SKU异常: orderId={}", accountId, orderId, e);
+            log.warn("【账号{}】获取订单详情异常: orderId={}", accountId, orderId, e);
             return null;
         }
     }

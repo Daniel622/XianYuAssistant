@@ -18,6 +18,7 @@ interface Props {
 
 interface Emits {
   (e: 'view', xyGoodId: string): void
+  (e: 'sync', xyGoodId: string): void
   (e: 'toggleAutoDelivery', item: GoodsItemWithConfig, value: boolean): void
   (e: 'toggleAutoReply', item: GoodsItemWithConfig, value: boolean): void
   (e: 'configAutoDelivery', item: GoodsItemWithConfig): void
@@ -212,6 +213,10 @@ const handleImgError = (e: Event) => {
             <button class="table__action table__action--detail" @click="emit('view', item.item.xyGoodId)">
               <IconCheck />
               <span>详情</span>
+            </button>
+            <button class="table__action table__action--sync" @click="emit('sync', item.item.xyGoodId)">
+              <IconSparkle />
+              <span>同步</span>
             </button>
             <button class="table__action table__action--delete" @click="emit('delete', item.item.xyGoodId, item.item.title)">
               <IconTrash />
@@ -748,6 +753,16 @@ const handleImgError = (e: Event) => {
 @media (hover: hover) {
   .table__action--detail:hover {
     background: rgba(52, 199, 89, 0.08);
+  }
+}
+
+.table__action--sync {
+  color: var(--c-accent);
+}
+
+@media (hover: hover) {
+  .table__action--sync:hover {
+    background: rgba(0, 122, 255, 0.08);
   }
 }
 

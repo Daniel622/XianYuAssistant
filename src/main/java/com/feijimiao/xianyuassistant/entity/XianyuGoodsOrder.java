@@ -39,4 +39,14 @@ public class XianyuGoodsOrder {
     private String goodsTitle;
 
     private String skuName;
+
+    private String orderCreateTime;
+
+    private String paySuccessTime;
+
+    private String consignTime;
+
+    private String totalPrice;
+
+    private Integer buyNum;
 }

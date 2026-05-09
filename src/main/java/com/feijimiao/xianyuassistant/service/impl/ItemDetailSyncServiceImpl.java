@@ -190,6 +190,21 @@ public class ItemDetailSyncServiceImpl implements ItemDetailSyncService {
         }
     }
 
+    @Override
+    public boolean syncSingleItem(Long accountId, String itemId) {
+        if (accountId == null || itemId == null || itemId.isEmpty()) {
+            log.warn("同步单个商品参数无效: accountId={}, itemId={}", accountId, itemId);
+            return false;
+        }
+        String cookieStr = accountService.getCookieByAccountId(accountId);
+        if (cookieStr == null || cookieStr.isEmpty()) {
+            log.warn("账号Cookie不存在: accountId={}", accountId);
+            return false;
+        }
+        log.info("同步单个商品: accountId={}, itemId={}", accountId, itemId);
+        return fetchAndSaveDetail(itemId, cookieStr, accountId);
+    }
+
     private String extractDescFromDetailJson(String detailJson) {
         try {
             JsonNode rootNode = objectMapper.readTree(detailJson);

@@ -12,6 +12,8 @@ public interface KeywordReplyService {
 
     void deleteRule(Long ruleId);
 
+    void updateKeyword(Long ruleId, String keyword);
+
     void updateMatchMode(Long ruleId, Integer matchMode);
 
     KeywordReplyRuleBO ensureFallbackRule(Long accountId, String xyGoodsId);

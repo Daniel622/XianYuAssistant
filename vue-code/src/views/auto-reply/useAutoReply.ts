@@ -9,7 +9,7 @@ import { showSuccess, showError, showInfo } from '@/utils'
 import { ElMessage } from 'element-plus'
 import type { Account } from '@/types'
 import type { GoodsItemWithConfig } from '@/api/goods'
-import { getKeywordReplyRules, addKeywordRule, deleteKeywordRule, addKeywordContent, deleteKeywordContent, updateKeywordContent, updateKeywordRuleMatchMode, ensureFallbackRule } from '@/api/keywordReply'
+import { getKeywordReplyRules, addKeywordRule, deleteKeywordRule, updateKeyword, addKeywordContent, deleteKeywordContent, updateKeywordContent, updateKeywordRuleMatchMode, ensureFallbackRule } from '@/api/keywordReply'
 import type { KeywordReplyRule, KeywordReplyContent } from '@/api/keywordReply'
 
 // 聊天消息类型
@@ -627,6 +627,19 @@ export function useAutoReply() {
       }
     } catch (e: any) {
       showError(e?.message || '删除关键词规则失败')
+    }
+  }
+
+  const handleUpdateKeyword = async (ruleId: number, newKeyword: string) => {
+    if (!newKeyword.trim()) return
+    try {
+      await updateKeyword({ ruleId, keyword: newKeyword.trim() })
+      const rule = keywordRules.value.find(r => r.id === ruleId)
+      if (rule) {
+        rule.keyword = newKeyword.trim()
+      }
+    } catch (e: any) {
+      showError(e?.message || '修改关键词失败')
     }
   }
 
@@ -1268,6 +1281,7 @@ export function useAutoReply() {
     updateHumanInterventionMinutes,
     handleAddKeyword,
     handleDeleteRule,
+    handleUpdateKeyword,
     handleAddContent,
     handleDeleteContent,
     replyModeTab,

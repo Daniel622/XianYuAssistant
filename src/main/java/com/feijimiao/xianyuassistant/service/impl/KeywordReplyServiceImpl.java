@@ -84,6 +84,16 @@ public class KeywordReplyServiceImpl implements KeywordReplyService {
     }
 
     @Override
+    public void updateKeyword(Long ruleId, String keyword) {
+        XianyuKeywordReplyRule rule = ruleMapper.selectById(ruleId);
+        if (rule == null) {
+            throw new RuntimeException("规则不存在: id=" + ruleId);
+        }
+        rule.setKeyword(keyword);
+        ruleMapper.updateById(rule);
+    }
+
+    @Override
     public void updateMatchMode(Long ruleId, Integer matchMode) {
         XianyuKeywordReplyRule rule = ruleMapper.selectById(ruleId);
         if (rule == null) {

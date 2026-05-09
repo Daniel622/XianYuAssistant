@@ -156,6 +156,17 @@ export function deleteItem(data: {
   });
 }
 
+export function syncSingleItem(data: {
+  xianyuAccountId: number;
+  xyGoodsId: string;
+}) {
+  return request({
+    url: '/items/syncSingle',
+    method: 'POST',
+    data
+  });
+}
+
 // 自动回复配置响应
 export interface AutoReplyConfigResponse {
   ragDelaySeconds: number;

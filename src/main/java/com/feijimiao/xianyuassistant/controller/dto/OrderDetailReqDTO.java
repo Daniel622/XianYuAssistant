@@ -12,4 +12,6 @@ public class OrderDetailReqDTO {
 
     @NotNull(message = "订单ID不能为空")
     private String orderId;
+
+    private Boolean fromServer;
 }

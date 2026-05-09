@@ -46,9 +46,18 @@ public class AutoDeliveryRecordDTO {
      * 订单ID
      */
     private String orderId;
-    
-    /**
-     * 创建时间
-     */
+
+    private String skuName;
+
+    private String orderCreateTime;
+
+    private String paySuccessTime;
+
+    private String consignTime;
+
+    private String totalPrice;
+
+    private Integer buyNum;
+
     private String createTime;
 }

@@ -2204,11 +2204,32 @@
 .ar__kw-item:active { transform: scale(0.98); background: rgba(0, 122, 255, 0.08); }
 .ar__kw-item--active { background: rgba(0, 122, 255, 0.06); }
 
+.ar__kw-item-del {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ar__kw-item:hover .ar__kw-item-del {
+  display: flex;
+}
+
 .ar__kw-item-text {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: default;
 }
 
 .ar__kw-item-count {
@@ -2436,6 +2457,43 @@
 
 .ar__kw-add-reply-btn:active {
   opacity: 0.7;
+}
+
+.ar__kw-detail-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ar__kw-del-rule-btn {
+  height: 28px;
+  padding: 0 10px;
+  background: rgba(255, 59, 48, 0.08);
+  color: #ff3b30;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ar__kw-del-rule-btn:active {
+  opacity: 0.7;
+}
+
+.ar__kw-detail-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--d-text-1);
+}
+
+.ar__kw-detail-title[contenteditable="true"] {
+  outline: none;
+  background: rgba(0, 122, 255, 0.08);
+  border-radius: 4px;
+  padding: 2px 6px;
 }
 
 .ar__kw-detail-meta {

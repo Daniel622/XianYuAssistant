@@ -58,6 +58,19 @@ public class KeywordReplyController {
         }
     }
 
+    @PostMapping("/updateKeyword")
+    public ResultObject<?> updateKeyword(@RequestBody Map<String, Object> params) {
+        try {
+            Long ruleId = Long.valueOf(params.get("ruleId").toString());
+            String keyword = params.get("keyword").toString();
+            keywordReplyService.updateKeyword(ruleId, keyword);
+            return ResultObject.success(null);
+        } catch (Exception e) {
+            log.error("修改关键词失败", e);
+            return ResultObject.failed("修改关键词失败: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/updateMatchMode")
     public ResultObject<?> updateMatchMode(@RequestBody Map<String, Object> params) {
         try {

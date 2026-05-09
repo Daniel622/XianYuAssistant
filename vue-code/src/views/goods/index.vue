@@ -41,7 +41,11 @@ const {
   toggleAutoDelivery,
   toggleAutoReply,
   confirmDelete,
-  executeDelete
+  executeDelete,
+  getGoodsStatusText,
+  formatPrice,
+  formatTime,
+  syncSingleGoods
 } = useGoodsManager()
 
 // 下拉刷新相关状态
@@ -311,6 +315,7 @@ const getPageButtons = () => {
           :goods-list="goodsList"
           :loading="loading"
           @view="viewDetail"
+          @sync="syncSingleGoods"
           @toggle-auto-delivery="toggleAutoDelivery"
           @toggle-auto-reply="toggleAutoReply"
           @config-auto-delivery="configAutoDelivery"

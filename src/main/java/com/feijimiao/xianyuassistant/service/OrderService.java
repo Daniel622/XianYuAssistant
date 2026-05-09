@@ -31,4 +31,6 @@ public interface OrderService {
      * @return 订单详情JSON
      */
     String getOrderDetail(Long accountId, String orderId);
+
+    String getOrderDetailFromLocal(Long accountId, String orderId);
 }

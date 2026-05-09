@@ -241,6 +241,11 @@ CREATE TABLE IF NOT EXISTS xianyu_goods_order (
     create_time DATETIME DEFAULT (datetime('now', 'localtime')),  -- 创建时间(本地时间)
     goods_title VARCHAR(256),                        -- 商品标题
     sku_name VARCHAR(200),                           -- SKU名称，如"新号"、"30级"
+    order_create_time VARCHAR(50),                   -- 下单时间
+    pay_success_time VARCHAR(50),                    -- 付款时间
+    consign_time VARCHAR(50),                        -- 发货时间
+    total_price VARCHAR(20),                         -- 订单金额
+    buy_num INTEGER,                                 -- 购买数量
     FOREIGN KEY (xianyu_account_id) REFERENCES xianyu_account(id)
 );
 

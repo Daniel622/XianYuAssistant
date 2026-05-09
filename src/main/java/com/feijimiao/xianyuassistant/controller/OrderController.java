@@ -61,8 +61,8 @@ public class OrderController {
     @PostMapping("/detail")
     public ResultObject<String> getOrderDetail(@RequestBody OrderDetailReqDTO reqDTO) {
         try {
-            log.info("获取订单详情请求: xianyuAccountId={}, orderId={}",
-                    reqDTO.getXianyuAccountId(), reqDTO.getOrderId());
+            log.info("获取订单详情请求: xianyuAccountId={}, orderId={}, fromServer={}",
+                    reqDTO.getXianyuAccountId(), reqDTO.getOrderId(), reqDTO.getFromServer());
 
             if (reqDTO.getXianyuAccountId() == null) {
                 return ResultObject.failed("账号ID不能为空");
@@ -71,7 +71,13 @@ public class OrderController {
                 return ResultObject.failed("订单ID不能为空");
             }
 
-            String detail = orderService.getOrderDetail(reqDTO.getXianyuAccountId(), reqDTO.getOrderId());
+            boolean fromServer = reqDTO.getFromServer() != null && reqDTO.getFromServer();
+            String detail;
+            if (fromServer) {
+                detail = orderService.getOrderDetail(reqDTO.getXianyuAccountId(), reqDTO.getOrderId());
+            } else {
+                detail = orderService.getOrderDetailFromLocal(reqDTO.getXianyuAccountId(), reqDTO.getOrderId());
+            }
             if (detail != null) {
                 return ResultObject.success(detail);
             } else {

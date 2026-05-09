@@ -8,6 +8,7 @@ import {
   updateAutoDeliveryStatus,
   updateAutoReplyStatus,
   deleteItem,
+  syncSingleItem,
   getSyncProgress,
   checkSyncing
 } from '@/api/goods'
@@ -273,6 +274,24 @@ export function useGoodsManager() {
     }
   }
 
+  const syncSingleGoods = async (xyGoodId: string) => {
+    if (!selectedAccountId.value) return
+    try {
+      const response = await syncSingleItem({
+        xianyuAccountId: selectedAccountId.value,
+        xyGoodsId: xyGoodId
+      })
+      if (response.code === 0 || response.code === 200) {
+        showSuccess('同步成功')
+        loadGoods()
+      } else {
+        throw new Error(response.msg || '同步失败')
+      }
+    } catch (error: any) {
+      console.error('同步失败:', error)
+    }
+  }
+
   return {
     loading,
     refreshing,
@@ -305,6 +324,7 @@ export function useGoodsManager() {
     executeDelete,
     getGoodsStatusText,
     formatPrice,
-    formatTime
+    formatTime,
+    syncSingleGoods
   }
 }

@@ -29,6 +29,10 @@ export function deleteKeywordRule(data: { ruleId: string | number }) {
   return request({ url: '/keyword-reply/deleteRule', method: 'POST', data });
 }
 
+export function updateKeyword(data: { ruleId: string | number; keyword: string }) {
+  return request({ url: '/keyword-reply/updateKeyword', method: 'POST', data });
+}
+
 export function updateKeywordRuleMatchMode(data: { ruleId: string | number; matchMode: number }) {
   return request({ url: '/keyword-reply/updateMatchMode', method: 'POST', data });
 }

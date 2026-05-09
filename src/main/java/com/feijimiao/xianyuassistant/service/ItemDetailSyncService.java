@@ -9,4 +9,5 @@ public interface ItemDetailSyncService {
     SyncProgressRespDTO getProgress(String syncId);
     void cancelSync(String syncId);
     boolean isSyncing(Long accountId);
+    boolean syncSingleItem(Long accountId, String itemId);
 }

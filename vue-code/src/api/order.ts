@@ -21,6 +21,11 @@ export interface DeliveryRecordVO {
   confirmState: number
   orderId?: string
   skuName?: string
+  orderCreateTime?: string
+  paySuccessTime?: string
+  consignTime?: string
+  totalPrice?: string
+  buyNum?: number
   createTime: string
 }
 
@@ -47,7 +52,7 @@ export function confirmShipment(data: { xianyuAccountId: number; orderId: string
   })
 }
 
-export function getOrderDetail(data: { xianyuAccountId: number; orderId: string }) {
+export function getOrderDetail(data: { xianyuAccountId: number; orderId: string; fromServer?: boolean }) {
   return request<string>({
     url: '/order/detail',
     method: 'POST',

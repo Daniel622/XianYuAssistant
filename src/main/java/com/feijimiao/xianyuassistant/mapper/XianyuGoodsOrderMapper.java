@@ -11,8 +11,8 @@ import java.util.List;
 @Mapper
 public interface XianyuGoodsOrderMapper {
     
-    @Insert("INSERT INTO xianyu_goods_order (xianyu_account_id, xianyu_goods_id, xy_goods_id, pnm_id, order_id, buyer_user_id, buyer_user_name, sid, content, state, fail_reason, confirm_state) " +
-            "VALUES (#{xianyuAccountId}, #{xianyuGoodsId}, #{xyGoodsId}, #{pnmId}, #{orderId}, #{buyerUserId}, #{buyerUserName}, #{sid}, #{content}, #{state}, #{failReason}, #{confirmState})")
+    @Insert("INSERT INTO xianyu_goods_order (xianyu_account_id, xianyu_goods_id, xy_goods_id, pnm_id, order_id, buyer_user_id, buyer_user_name, sid, content, state, fail_reason, confirm_state, order_create_time, consign_time) " +
+            "VALUES (#{xianyuAccountId}, #{xianyuGoodsId}, #{xyGoodsId}, #{pnmId}, #{orderId}, #{buyerUserId}, #{buyerUserName}, #{sid}, #{content}, #{state}, #{failReason}, #{confirmState}, #{orderCreateTime}, #{consignTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(XianyuGoodsOrder record);
     
@@ -50,7 +50,12 @@ public interface XianyuGoodsOrderMapper {
         @Result(property = "confirmState", column = "confirm_state"),
         @Result(property = "createTime", column = "create_time"),
         @Result(property = "goodsTitle", column = "goods_title"),
-        @Result(property = "skuName", column = "sku_name")
+        @Result(property = "skuName", column = "sku_name"),
+        @Result(property = "orderCreateTime", column = "order_create_time"),
+        @Result(property = "paySuccessTime", column = "pay_success_time"),
+        @Result(property = "consignTime", column = "consign_time"),
+        @Result(property = "totalPrice", column = "total_price"),
+        @Result(property = "buyNum", column = "buy_num")
     })
     List<XianyuGoodsOrder> selectByAccountIdWithPage(
             @Param("accountId") Long accountId,
@@ -78,6 +83,9 @@ public interface XianyuGoodsOrderMapper {
     
     @Select("SELECT * FROM xianyu_goods_order WHERE xianyu_account_id = #{accountId} AND xy_goods_id = #{xyGoodsId} AND order_id = #{orderId} LIMIT 1")
     XianyuGoodsOrder selectByOrderId(@Param("accountId") Long accountId, @Param("xyGoodsId") String xyGoodsId, @Param("orderId") String orderId);
+
+    @Select("SELECT * FROM xianyu_goods_order WHERE xianyu_account_id = #{accountId} AND order_id = #{orderId} LIMIT 1")
+    XianyuGoodsOrder selectByAccountIdAndOrderId(@Param("accountId") Long accountId, @Param("orderId") String orderId);
     
     @Update("UPDATE xianyu_goods_order SET confirm_state = 1 WHERE xianyu_account_id = #{accountId} AND order_id = #{orderId}")
     int updateConfirmState(@Param("accountId") Long accountId, @Param("orderId") String orderId);
@@ -108,4 +116,7 @@ public interface XianyuGoodsOrderMapper {
 
     @Update("UPDATE xianyu_goods_order SET sku_name = #{skuName} WHERE id = #{id}")
     int updateSkuName(@Param("id") Long id, @Param("skuName") String skuName);
+
+    @Update("UPDATE xianyu_goods_order SET buyer_user_name = #{buyerUserName}, order_create_time = #{orderCreateTime}, pay_success_time = #{paySuccessTime}, consign_time = #{consignTime}, sku_name = #{skuName}, goods_title = #{goodsTitle}, total_price = #{totalPrice}, buy_num = #{buyNum} WHERE id = #{id}")
+    int updateOrderDetail(@Param("id") Long id, @Param("buyerUserName") String buyerUserName, @Param("orderCreateTime") String orderCreateTime, @Param("paySuccessTime") String paySuccessTime, @Param("consignTime") String consignTime, @Param("skuName") String skuName, @Param("goodsTitle") String goodsTitle, @Param("totalPrice") String totalPrice, @Param("buyNum") Integer buyNum);
 }

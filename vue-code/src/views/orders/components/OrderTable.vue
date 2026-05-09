@@ -31,33 +31,36 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailData = ref<any>(null)
 const detailSkuText = ref('')
+const detailFromServer = ref(false)
 
-const handleViewDetail = async (order: DeliveryRecordItem) => {
+const handleViewDetail = async (order: DeliveryRecordItem, fromServer: boolean = false) => {
   if (!order.orderId || !order.xianyuAccountId) return
   detailLoading.value = true
   detailVisible.value = true
   detailData.value = null
   detailSkuText.value = ''
+  detailFromServer.value = fromServer
   try {
-    const res = await getOrderDetail({ xianyuAccountId: order.xianyuAccountId, orderId: order.orderId })
+    const res = await getOrderDetail({ xianyuAccountId: order.xianyuAccountId, orderId: order.orderId, fromServer })
     if (res.code === 200 || res.code === 0) {
       const parsed = JSON.parse(res.data || '{}')
       detailData.value = parsed
 
-      const module = parsed.module || {}
-      const orderInfoVO = module.orderInfoVO || {}
-      const itemInfo = orderInfoVO.itemInfo || {}
-      const merchantItemVO = module.merchantItemVO || {}
-      const merchantCommonData = module.merchantCommonData || {}
-      const merchantPriceVO = module.merchantPriceVO || {}
-
-      const skuInfo = itemInfo.skuInfo || ''
-      const itemInfoLines: any[] = merchantItemVO.itemInfoLines || []
-      const specLine = itemInfoLines.find((l: any) => l.key === '规格')
-      if (skuInfo || specLine) {
-        detailSkuText.value = specLine?.value || skuInfo.split(':').pop() || ''
+      if (fromServer) {
+        const module = parsed.module || {}
+        const orderInfoVO = module.orderInfoVO || {}
+        const itemInfo = orderInfoVO.itemInfo || {}
+        const merchantItemVO = module.merchantItemVO || {}
+        const itemInfoLines: any[] = merchantItemVO.itemInfoLines || []
+        const specLine = itemInfoLines.find((l: any) => l.key === '规格')
+        const skuInfo = itemInfo.skuInfo || ''
+        if (skuInfo || specLine) {
+          detailSkuText.value = specLine?.value || skuInfo.split(':').pop() || ''
+        } else {
+          detailSkuText.value = ''
+        }
       } else {
-        detailSkuText.value = ''
+        detailSkuText.value = parsed.skuName || ''
       }
     } else {
       showError(res.msg || '获取订单详情失败')
@@ -69,6 +72,25 @@ const handleViewDetail = async (order: DeliveryRecordItem) => {
   } finally {
     detailLoading.value = false
   }
+}
+
+let clickTimer: ReturnType<typeof setTimeout> | null = null
+let lastClickTime = 0
+const handleClickDetail = (order: DeliveryRecordItem) => {
+  const now = Date.now()
+  if (clickTimer) {
+    clearTimeout(clickTimer)
+    clickTimer = null
+  }
+  if (now - lastClickTime < 300) {
+    handleViewDetail(order, true)
+  } else {
+    clickTimer = setTimeout(() => {
+      handleViewDetail(order, false)
+      clickTimer = null
+    }, 300)
+  }
+  lastClickTime = now
 }
 
 const isMobile = ref(false)
@@ -191,7 +213,8 @@ const getConfirmBg = (state: number) => {
         <button
           v-if="order.orderId"
           class="order-card__action order-card__action--detail"
-          @click="handleViewDetail(order)"
+          title="单击查本地，双击同步闲鱼"
+          @click="handleClickDetail(order)"
         >
           <IconEye />
           <span>详情</span>
@@ -278,7 +301,8 @@ const getConfirmBg = (state: number) => {
             <button
               v-if="order.orderId"
               class="table__action table__action--detail"
-              @click="handleViewDetail(order)"
+              title="单击查本地，双击同步闲鱼"
+              @click="handleClickDetail(order)"
             >
               <IconEye />
               <span>详情</span>
@@ -320,53 +344,104 @@ const getConfirmBg = (state: number) => {
           <template v-else-if="detailData">
             <div class="detail-dialog__section">
               <div class="detail-dialog__rows">
-                <template v-if="detailData.module">
-                  <div v-if="detailData.module.merchantCommonData" class="detail-dialog__rows">
-                    <div v-if="detailData.module.merchantCommonData.orderId" class="detail-dialog__row">
-                      <span class="detail-dialog__label">订单ID</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.orderId }}</span>
-                    </div>
-                    <div v-if="detailData.module.merchantCommonData.orderStatus" class="detail-dialog__row">
-                      <span class="detail-dialog__label">状态</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.orderStatus }}</span>
-                    </div>
-                    <div v-if="detailData.module.merchantCommonData.createTime" class="detail-dialog__row">
-                      <span class="detail-dialog__label">下单时间</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.createTime }}</span>
-                    </div>
-                    <div v-if="detailData.module.merchantCommonData.paySuccessTime" class="detail-dialog__row">
-                      <span class="detail-dialog__label">付款时间</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.paySuccessTime }}</span>
-                    </div>
+                <template v-if="detailFromServer && detailData.module">
+                  <div v-if="detailData.module.merchantCommonData?.orderId" class="detail-dialog__row">
+                    <span class="detail-dialog__label">订单ID</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.orderId }}</span>
                   </div>
-                  <div v-if="detailData.module.merchantItemVO" class="detail-dialog__rows">
-                    <div v-if="detailData.module.merchantItemVO.title" class="detail-dialog__row">
-                      <span class="detail-dialog__label">商品</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantItemVO.title }}</span>
-                    </div>
+                  <div v-if="detailData.module.merchantCommonData?.orderStatus" class="detail-dialog__row">
+                    <span class="detail-dialog__label">状态</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.orderStatus }}</span>
+                  </div>
+                  <div v-if="detailData.module.merchantCommonData?.createTime" class="detail-dialog__row">
+                    <span class="detail-dialog__label">下单时间</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.createTime }}</span>
+                  </div>
+                  <div v-if="detailData.module.merchantCommonData?.paySuccessTime" class="detail-dialog__row">
+                    <span class="detail-dialog__label">付款时间</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantCommonData.paySuccessTime }}</span>
+                  </div>
+                  <div v-if="detailData.module.merchantItemVO?.title" class="detail-dialog__row">
+                    <span class="detail-dialog__label">商品</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantItemVO.title }}</span>
                   </div>
                   <div v-if="detailSkuText" class="detail-dialog__row detail-dialog__row--highlight">
                     <span class="detail-dialog__label">规格</span>
                     <span class="detail-dialog__value detail-dialog__sku">{{ detailSkuText }}</span>
                   </div>
-                  <div v-if="detailData.module.merchantPriceVO" class="detail-dialog__rows">
-                    <div v-if="detailData.module.merchantPriceVO.totalPrice" class="detail-dialog__row">
-                      <span class="detail-dialog__label">金额</span>
-                      <span class="detail-dialog__value">¥{{ detailData.module.merchantPriceVO.totalPrice }}</span>
-                    </div>
-                    <div v-if="detailData.module.merchantPriceVO.buyNum" class="detail-dialog__row">
-                      <span class="detail-dialog__label">数量</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantPriceVO.buyNum }}</span>
-                    </div>
+                  <div v-if="detailData.module.merchantPriceVO?.totalPrice" class="detail-dialog__row">
+                    <span class="detail-dialog__label">金额</span>
+                    <span class="detail-dialog__value">¥{{ detailData.module.merchantPriceVO.totalPrice }}</span>
                   </div>
-                  <div v-if="detailData.module.merchantBuyerVO" class="detail-dialog__rows">
-                    <div v-if="detailData.module.merchantBuyerVO.userNick" class="detail-dialog__row">
-                      <span class="detail-dialog__label">买家</span>
-                      <span class="detail-dialog__value">{{ detailData.module.merchantBuyerVO.userNick }}</span>
-                    </div>
+                  <div v-if="detailData.module.merchantPriceVO?.buyNum" class="detail-dialog__row">
+                    <span class="detail-dialog__label">数量</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantPriceVO.buyNum }}</span>
+                  </div>
+                  <div v-if="detailData.module.merchantBuyerVO?.userNick" class="detail-dialog__row">
+                    <span class="detail-dialog__label">买家</span>
+                    <span class="detail-dialog__value">{{ detailData.module.merchantBuyerVO.userNick }}</span>
                   </div>
                 </template>
-                <div v-if="!detailData.module" class="detail-dialog__raw">
+                <template v-else-if="!detailFromServer">
+                  <div class="detail-dialog__tag detail-dialog__tag--local">本地数据</div>
+                  <div v-if="detailData.orderId" class="detail-dialog__row">
+                    <span class="detail-dialog__label">订单ID</span>
+                    <span class="detail-dialog__value">{{ detailData.orderId }}</span>
+                  </div>
+                  <div v-if="detailData.goodsTitle" class="detail-dialog__row">
+                    <span class="detail-dialog__label">商品</span>
+                    <span class="detail-dialog__value">{{ detailData.goodsTitle }}</span>
+                  </div>
+                  <div v-if="detailSkuText" class="detail-dialog__row detail-dialog__row--highlight">
+                    <span class="detail-dialog__label">规格</span>
+                    <span class="detail-dialog__value detail-dialog__sku">{{ detailSkuText }}</span>
+                  </div>
+                  <div v-if="detailData.orderCreateTime" class="detail-dialog__row">
+                    <span class="detail-dialog__label">下单时间</span>
+                    <span class="detail-dialog__value">{{ detailData.orderCreateTime }}</span>
+                  </div>
+                  <div v-if="detailData.paySuccessTime" class="detail-dialog__row">
+                    <span class="detail-dialog__label">付款时间</span>
+                    <span class="detail-dialog__value">{{ detailData.paySuccessTime }}</span>
+                  </div>
+                  <div v-if="detailData.totalPrice" class="detail-dialog__row">
+                    <span class="detail-dialog__label">金额</span>
+                    <span class="detail-dialog__value">¥{{ detailData.totalPrice }}</span>
+                  </div>
+                  <div v-if="detailData.buyNum" class="detail-dialog__row">
+                    <span class="detail-dialog__label">数量</span>
+                    <span class="detail-dialog__value">{{ detailData.buyNum }}</span>
+                  </div>
+                  <div v-if="detailData.buyerUserName" class="detail-dialog__row">
+                    <span class="detail-dialog__label">买家</span>
+                    <span class="detail-dialog__value">{{ detailData.buyerUserName }}</span>
+                  </div>
+                  <div v-if="detailData.consignTime" class="detail-dialog__row">
+                    <span class="detail-dialog__label">发货时间</span>
+                    <span class="detail-dialog__value">{{ detailData.consignTime }}</span>
+                  </div>
+                  <div v-if="detailData.content" class="detail-dialog__row">
+                    <span class="detail-dialog__label">发货内容</span>
+                    <span class="detail-dialog__value detail-dialog__content">{{ detailData.content }}</span>
+                  </div>
+                  <div class="detail-dialog__row">
+                    <span class="detail-dialog__label">发货状态</span>
+                    <span class="detail-dialog__value" :style="{ color: detailData.state === 1 ? '#34c759' : '#ff3b30' }">{{ detailData.state === 1 ? '成功' : '失败' }}</span>
+                  </div>
+                  <div v-if="detailData.failReason" class="detail-dialog__row">
+                    <span class="detail-dialog__label">失败原因</span>
+                    <span class="detail-dialog__value detail-dialog__fail">{{ detailData.failReason }}</span>
+                  </div>
+                  <div class="detail-dialog__row">
+                    <span class="detail-dialog__label">确认状态</span>
+                    <span class="detail-dialog__value">{{ detailData.confirmState === 1 ? '已确认' : '未确认' }}</span>
+                  </div>
+                  <div v-if="detailData.createTime" class="detail-dialog__row">
+                    <span class="detail-dialog__label">记录时间</span>
+                    <span class="detail-dialog__value">{{ detailData.createTime }}</span>
+                  </div>
+                </template>
+                <div v-if="detailFromServer && !detailData.module" class="detail-dialog__raw">
                   <pre>{{ JSON.stringify(detailData, null, 2) }}</pre>
                 </div>
               </div>
@@ -943,6 +1018,32 @@ const getConfirmBg = (state: number) => {
   background: rgba(255, 149, 0, 0.08);
   padding: 2px 8px;
   border-radius: 4px;
+  font-size: 12px;
+}
+
+.detail-dialog__tag {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.detail-dialog__tag--local {
+  color: #007aff;
+  background: rgba(0, 122, 255, 0.1);
+}
+
+.detail-dialog__content {
+  word-break: break-all;
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--c-text-secondary);
+}
+
+.detail-dialog__fail {
+  color: #ff3b30;
   font-size: 12px;
 }
 
