@@ -387,7 +387,7 @@ onMounted(() => {
                 @click="configForm.deliveryMode = 1"
               >
                 <IconText />
-                文本发货
+                网盘链接发货
               </button>
               <button
                 class="ad__tab-btn"
@@ -406,15 +406,40 @@ onMounted(() => {
             <div class="ad__config-section">
               <div class="ad__config-section-title">发货内容</div>
 
-              <textarea
-                v-model="configForm.autoDeliveryContent"
-                class="ad__textarea"
-                placeholder="请输入自动发货内容，买家下单后将自动发送此内容"
-                maxlength="1000"
-              ></textarea>
-              <div class="ad__textarea-footer">
-                <span class="ad__textarea-hint">支持文本、链接、卡密等内容</span>
-                <span class="ad__textarea-count">{{ configForm.autoDeliveryContent.length }} / 1000</span>
+              <div style="display: grid; gap: 12px;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                    <span style="font-size: 13px; color: rgba(28,28,30,.55);">网盘链接</span>
+                  </div>
+                  <textarea
+                    v-model="configForm.autoDeliveryLink"
+                    class="native-input"
+                    :rows="2"
+                    placeholder="请输入网盘链接，例如：https://..."
+                  ></textarea>
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                    <span style="font-size: 13px; color: rgba(28,28,30,.55);">说明文本</span>
+                  </div>
+                  <textarea
+                    v-model="configForm.autoDeliveryNote"
+                    class="native-input"
+                    :rows="4"
+                    placeholder="请输入买家看到的说明文字，例如提取码、使用步骤、注意事项等"
+                  ></textarea>
+                </div>
+                <div>
+                  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                    <span style="font-size: 13px; color: rgba(28,28,30,.55);">兼容旧字段</span>
+                  </div>
+                  <textarea
+                    v-model="configForm.autoDeliveryContent"
+                    class="native-input"
+                    :rows="2"
+                    placeholder="旧版本兼容字段，可不填；系统会优先使用上面的链接和说明"
+                  ></textarea>
+                </div>
               </div>
 
               <div class="ad__image-section">

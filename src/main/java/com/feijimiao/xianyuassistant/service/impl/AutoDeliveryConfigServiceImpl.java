@@ -19,10 +19,10 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService {
-    
+
     @Autowired
     private XianyuGoodsAutoDeliveryConfigMapper autoDeliveryConfigMapper;
-    
+
     @Override
     public ResultObject<AutoDeliveryConfigRespDTO> saveOrUpdateConfig(AutoDeliveryConfigReqDTO reqDTO) {
         try {
@@ -39,14 +39,17 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
                     existingConfig = null;
                 }
             }
-            
+
             XianyuGoodsAutoDeliveryConfig config;
+            String autoDeliveryContent = buildAutoDeliveryContent(reqDTO);
             if (existingConfig != null) {
                 config = existingConfig;
                 config.setDeliveryMode(reqDTO.getDeliveryMode());
                 config.setSkuId(reqDTO.getSkuId());
                 config.setSkuName(reqDTO.getSkuName());
-                config.setAutoDeliveryContent(reqDTO.getAutoDeliveryContent());
+                config.setAutoDeliveryLink(reqDTO.getAutoDeliveryLink());
+                config.setAutoDeliveryNote(reqDTO.getAutoDeliveryNote());
+                config.setAutoDeliveryContent(autoDeliveryContent);
                 config.setKamiConfigIds(reqDTO.getKamiConfigIds());
                 config.setKamiDeliveryTemplate(reqDTO.getKamiDeliveryTemplate());
                 config.setAutoDeliveryImageUrl(reqDTO.getAutoDeliveryImageUrl());
@@ -54,7 +57,7 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
                 if (reqDTO.getAutoConfirmShipment() != null) {
                     config.setAutoConfirmShipment(reqDTO.getAutoConfirmShipment());
                 }
-                
+
                 autoDeliveryConfigMapper.updateById(config);
                 log.info("更新自动发货配置成功，ID: {}", config.getId());
             } else {
@@ -63,29 +66,29 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
                 if (config.getSkuId() == null) {
                     config.setSkuId(null);
                 }
-                
+                config.setAutoDeliveryContent(autoDeliveryContent);
+
                 autoDeliveryConfigMapper.insert(config);
                 log.info("创建自动发货配置成功，ID: {}", config.getId());
             }
-            
+
             AutoDeliveryConfigRespDTO respDTO = new AutoDeliveryConfigRespDTO();
             BeanUtils.copyProperties(config, respDTO);
-            
             return ResultObject.success(respDTO);
         } catch (Exception e) {
             log.error("保存自动发货配置失败", e);
             return ResultObject.failed("保存自动发货配置失败: " + e.getMessage());
         }
     }
-    
+
     @Override
     public ResultObject<AutoDeliveryConfigRespDTO> getConfig(AutoDeliveryConfigQueryReqDTO reqDTO) {
         try {
-            log.info("开始查询自动发货配置: xianyuAccountId={}, xyGoodsId={}, skuId={}", 
+            log.info("开始查询自动发货配置: xianyuAccountId={}, xyGoodsId={}, skuId={}",
                     reqDTO.getXianyuAccountId(), reqDTO.getXyGoodsId(), reqDTO.getSkuId());
-            
+
             XianyuGoodsAutoDeliveryConfig config = null;
-            
+
             if (reqDTO.getXyGoodsId() != null && !reqDTO.getXyGoodsId().trim().isEmpty()) {
                 String skuId = reqDTO.getSkuId();
                 if (skuId != null && !skuId.isEmpty()) {
@@ -101,27 +104,26 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
                         .findByAccountId(reqDTO.getXianyuAccountId());
                 config = configs.isEmpty() ? null : configs.get(0);
             }
-            
+
             if (config == null) {
                 return ResultObject.success(null);
             }
-            
+
             AutoDeliveryConfigRespDTO respDTO = new AutoDeliveryConfigRespDTO();
             BeanUtils.copyProperties(config, respDTO);
-            
             return ResultObject.success(respDTO);
         } catch (Exception e) {
             log.error("查询自动发货配置失败", e);
             return ResultObject.failed("查询自动发货配置失败: " + e.getMessage());
         }
     }
-    
+
     @Override
     public ResultObject<List<AutoDeliveryConfigRespDTO>> getConfigsByGoodsId(Long xianyuAccountId, String xyGoodsId) {
         try {
             List<XianyuGoodsAutoDeliveryConfig> configs = autoDeliveryConfigMapper
                     .findByAccountIdAndGoodsId(xianyuAccountId, xyGoodsId);
-            
+
             List<AutoDeliveryConfigRespDTO> respDTOs = configs.stream()
                     .map(config -> {
                         AutoDeliveryConfigRespDTO respDTO = new AutoDeliveryConfigRespDTO();
@@ -129,20 +131,20 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
                         return respDTO;
                     })
                     .collect(Collectors.toList());
-            
+
             return ResultObject.success(respDTOs);
         } catch (Exception e) {
             log.error("查询商品自动发货配置列表失败", e);
             return ResultObject.failed("查询商品自动发货配置列表失败: " + e.getMessage());
         }
     }
-    
+
     @Override
     public ResultObject<List<AutoDeliveryConfigRespDTO>> getConfigsByAccountId(Long xianyuAccountId) {
         try {
             List<XianyuGoodsAutoDeliveryConfig> configs = autoDeliveryConfigMapper
                     .findByAccountId(xianyuAccountId);
-            
+
             List<AutoDeliveryConfigRespDTO> respDTOs = configs.stream()
                     .map(config -> {
                         AutoDeliveryConfigRespDTO respDTO = new AutoDeliveryConfigRespDTO();
@@ -150,23 +152,23 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
                         return respDTO;
                     })
                     .collect(Collectors.toList());
-            
+
             return ResultObject.success(respDTOs);
         } catch (Exception e) {
             log.error("查询账号自动发货配置列表失败", e);
             return ResultObject.failed("查询账号自动发货配置列表失败: " + e.getMessage());
         }
     }
-    
+
     @Override
     public ResultObject<Void> deleteConfig(Long xianyuAccountId, String xyGoodsId) {
         try {
             LambdaQueryWrapper<XianyuGoodsAutoDeliveryConfig> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(XianyuGoodsAutoDeliveryConfig::getXianyuAccountId, xianyuAccountId)
                    .eq(XianyuGoodsAutoDeliveryConfig::getXyGoodsId, xyGoodsId);
-            
+
             int deletedCount = autoDeliveryConfigMapper.delete(wrapper);
-            
+
             if (deletedCount > 0) {
                 log.info("删除自动发货配置成功，账号ID: {}, 商品ID: {}", xianyuAccountId, xyGoodsId);
                 return ResultObject.success(null);
@@ -177,5 +179,22 @@ public class AutoDeliveryConfigServiceImpl implements AutoDeliveryConfigService 
             log.error("删除自动发货配置失败", e);
             return ResultObject.failed("删除自动发货配置失败: " + e.getMessage());
         }
+    }
+
+    private String buildAutoDeliveryContent(AutoDeliveryConfigReqDTO reqDTO) {
+        String link = reqDTO.getAutoDeliveryLink() != null ? reqDTO.getAutoDeliveryLink().trim() : "";
+        String note = reqDTO.getAutoDeliveryNote() != null ? reqDTO.getAutoDeliveryNote().trim() : "";
+
+        if (note.isEmpty() && reqDTO.getAutoDeliveryContent() != null && !reqDTO.getAutoDeliveryContent().trim().isEmpty()) {
+            note = reqDTO.getAutoDeliveryContent().trim();
+        }
+
+        if (link.isEmpty()) {
+            return note;
+        }
+        if (note.isEmpty()) {
+            return link;
+        }
+        return link + "\n" + note;
     }
 }

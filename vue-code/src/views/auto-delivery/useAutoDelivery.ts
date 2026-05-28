@@ -75,6 +75,8 @@ export function useAutoDelivery() {
 
   const configForm = ref({
     deliveryMode: 1,
+    autoDeliveryLink: '',
+    autoDeliveryNote: '',
     autoDeliveryContent: '',
     kamiConfigIds: '',
     kamiDeliveryTemplate: '',
@@ -390,6 +392,8 @@ export function useAutoDelivery() {
         currentConfig.value = response.data || null
         if (response.data) {
           configForm.value.deliveryMode = response.data.deliveryMode || 1
+          configForm.value.autoDeliveryLink = response.data.autoDeliveryLink || ''
+          configForm.value.autoDeliveryNote = response.data.autoDeliveryNote || ''
           configForm.value.autoDeliveryContent = response.data.autoDeliveryContent || ''
           configForm.value.kamiConfigIds = response.data.kamiConfigIds || ''
           configForm.value.kamiDeliveryTemplate = response.data.kamiDeliveryTemplate || ''
@@ -399,6 +403,8 @@ export function useAutoDelivery() {
           }
         } else {
           configForm.value.deliveryMode = 1
+          configForm.value.autoDeliveryLink = ''
+          configForm.value.autoDeliveryNote = ''
           configForm.value.autoDeliveryContent = ''
           configForm.value.kamiConfigIds = ''
           configForm.value.kamiDeliveryTemplate = ''
@@ -419,8 +425,8 @@ export function useAutoDelivery() {
       return
     }
 
-    if (configForm.value.deliveryMode === 1 && !configForm.value.autoDeliveryContent.trim()) {
-      showInfo('请输入自动发货内容')
+    if (configForm.value.deliveryMode === 1 && !configForm.value.autoDeliveryLink.trim() && !configForm.value.autoDeliveryNote.trim() && !configForm.value.autoDeliveryContent.trim()) {
+      showInfo('请输入发货链接或说明文本')
       return
     }
     if (configForm.value.deliveryMode === 2 && !configForm.value.kamiConfigIds) {
@@ -441,6 +447,8 @@ export function useAutoDelivery() {
         deliveryMode: configForm.value.deliveryMode,
         skuId: selectedSkuId.value,
         skuName,
+        autoDeliveryLink: configForm.value.autoDeliveryLink.trim(),
+        autoDeliveryNote: configForm.value.autoDeliveryNote.trim(),
         autoDeliveryContent: configForm.value.autoDeliveryContent.trim(),
         kamiConfigIds: configForm.value.kamiConfigIds,
         kamiDeliveryTemplate: configForm.value.kamiDeliveryTemplate.trim(),
@@ -650,8 +658,8 @@ export function useAutoDelivery() {
       showWsDisconnectedTip()
       return
     }
-    if (configForm.value.deliveryMode === 1 && (!configForm.value.autoDeliveryContent || !configForm.value.autoDeliveryContent.trim())) {
-      showError('请配置发货内容！')
+    if (configForm.value.deliveryMode === 1 && (!configForm.value.autoDeliveryLink || !configForm.value.autoDeliveryLink.trim()) && (!configForm.value.autoDeliveryNote || !configForm.value.autoDeliveryNote.trim()) && (!configForm.value.autoDeliveryContent || !configForm.value.autoDeliveryContent.trim())) {
+      showError('请配置发货链接或说明文本！')
       return
     }
     if (configForm.value.deliveryMode === 2 && !configForm.value.kamiConfigIds) {

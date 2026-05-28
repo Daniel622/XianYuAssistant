@@ -9,27 +9,27 @@ import java.time.LocalDateTime;
  */
 @Data
 public class AutoDeliveryConfigRespDTO {
-    
+
     /**
      * 配置ID
      */
     private Long id;
-    
+
     /**
      * 闲鱼账号ID
      */
     private Long xianyuAccountId;
-    
+
     /**
      * 本地闲鱼商品ID
      */
     private Long xianyuGoodsId;
-    
+
     /**
      * 闲鱼的商品ID
      */
     private String xyGoodsId;
-    
+
     /**
      * 发货模式：1-自动发货，2-卡密发货，3-自定义发货
      */
@@ -39,6 +39,19 @@ public class AutoDeliveryConfigRespDTO {
 
     private String skuName;
 
+    /**
+     * 自动发货链接
+     */
+    private String autoDeliveryLink;
+
+    /**
+     * 自动发货说明文本
+     */
+    private String autoDeliveryNote;
+
+    /**
+     * 自动发货的完整内容，兼容旧版本
+     */
     private String autoDeliveryContent;
 
     /**
@@ -55,17 +68,17 @@ public class AutoDeliveryConfigRespDTO {
      * 自动发货图片URL
      */
     private String autoDeliveryImageUrl;
-    
+
     /**
      * 自动确认发货开关：0-关闭，1-开启
      */
     private Integer autoConfirmShipment;
-    
+
     /**
      * 创建时间
      */
     private LocalDateTime createTime;
-    
+
     /**
      * 更新时间
      */

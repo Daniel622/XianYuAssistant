@@ -47,6 +47,8 @@ public class AutoDeliveryBackupHandler implements DataBackupHandler {
             map.put("skuId", config.getSkuId());
             map.put("skuName", config.getSkuName());
             map.put("deliveryMode", config.getDeliveryMode());
+            map.put("autoDeliveryLink", config.getAutoDeliveryLink());
+            map.put("autoDeliveryNote", config.getAutoDeliveryNote());
             map.put("autoDeliveryContent", config.getAutoDeliveryContent());
             map.put("kamiConfigIds", config.getKamiConfigIds());
             map.put("kamiDeliveryTemplate", config.getKamiDeliveryTemplate());
@@ -101,6 +103,8 @@ public class AutoDeliveryBackupHandler implements DataBackupHandler {
                 config.setSkuId(skuId);
                 config.setSkuName((String) map.get("skuName"));
                 config.setDeliveryMode(map.get("deliveryMode") != null ? ((Number) map.get("deliveryMode")).intValue() : null);
+                config.setAutoDeliveryLink((String) map.get("autoDeliveryLink"));
+                config.setAutoDeliveryNote((String) map.get("autoDeliveryNote"));
                 config.setAutoDeliveryContent((String) map.get("autoDeliveryContent"));
                 config.setKamiConfigIds((String) map.get("kamiConfigIds"));
                 config.setKamiDeliveryTemplate((String) map.get("kamiDeliveryTemplate"));

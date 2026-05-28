@@ -11,28 +11,28 @@ import java.time.LocalDateTime;
 @Data
 @TableName("xianyu_goods_auto_delivery_config")
 public class XianyuGoodsAutoDeliveryConfig {
-    
+
     /**
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
     private Long id;
-    
+
     /**
      * 闲鱼账号ID
      */
     private Long xianyuAccountId;
-    
+
     /**
      * 本地闲鱼商品ID
      */
     private Long xianyuGoodsId;
-    
+
     /**
      * 闲鱼的商品ID
      */
     private String xyGoodsId;
-    
+
     /**
      * 发货模式：1-自动发货，2-卡密发货，3-自定义发货
      */
@@ -42,6 +42,19 @@ public class XianyuGoodsAutoDeliveryConfig {
 
     private String skuName;
 
+    /**
+     * 自动发货链接
+     */
+    private String autoDeliveryLink;
+
+    /**
+     * 自动发货说明文本
+     */
+    private String autoDeliveryNote;
+
+    /**
+     * 自动发货的完整内容，兼容旧版本
+     */
     private String autoDeliveryContent;
 
     /**
@@ -53,7 +66,7 @@ public class XianyuGoodsAutoDeliveryConfig {
      * 卡密发货文案模板，使用{kmKey}占位符替换卡密内容
      */
     private String kamiDeliveryTemplate;
-    
+
     /**
      * 自动发货图片URL
      */
@@ -68,13 +81,13 @@ public class XianyuGoodsAutoDeliveryConfig {
      * 自动回复延时秒数（RAG回复延时）
      */
     private Integer ragDelaySeconds;
-    
+
     /**
      * 创建时间
      */
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime = LocalDateTime.now();
-    
+
     /**
      * 更新时间
      */

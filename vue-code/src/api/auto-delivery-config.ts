@@ -9,6 +9,8 @@ export interface AutoDeliveryConfig {
   deliveryMode: number;
   skuId: string | null;
   skuName?: string;
+  autoDeliveryLink?: string;
+  autoDeliveryNote?: string;
   autoDeliveryContent: string;
   kamiConfigIds?: string;
   kamiDeliveryTemplate?: string;
@@ -25,6 +27,8 @@ export interface SaveAutoDeliveryConfigReq {
   deliveryMode: number;
   skuId?: string | null;
   skuName?: string;
+  autoDeliveryLink?: string;
+  autoDeliveryNote?: string;
   autoDeliveryContent: string;
   kamiConfigIds?: string;
   kamiDeliveryTemplate?: string;
