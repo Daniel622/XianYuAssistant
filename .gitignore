@@ -46,3 +46,6 @@ build/
 /.qoder/
 /.qoder/
 /.arts/
+
+# Local launch helpers
+.xianyuassistant.pid
